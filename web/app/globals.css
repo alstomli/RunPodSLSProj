@@ -63,3 +63,15 @@ button:disabled {
 .error {
   color: var(--error);
 }
+
+/* Advanced settings (generate-form.tsx) */
+button.secondary {
+  background: var(--background);
+  border-color: var(--border);
+  color: var(--foreground);
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
