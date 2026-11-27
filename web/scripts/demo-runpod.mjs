@@ -3,7 +3,9 @@
 // through on its own clock: IN_QUEUE for 3 s, IN_PROGRESS until 8 s, then COMPLETED with a
 // generated PNG of the requested size. A prompt containing "fail" ends FAILED, "error" ends with
 // a Worker error, and "cold" waits 30 s in the queue first (a Cold start). /cancel works.
-// Jobs it didn't create answer 404, like an expired result on Runpod.
+// Jobs it didn't create answer 404, like an expired result on Runpod (`unknownJobStatus` changes
+// that; the browser smoke test uses 400 so its follower leaves other runs' Jobs in the shared
+// database alone).
 import http from "node:http";
 import zlib from "node:zlib";
 
@@ -58,8 +60,12 @@ export function makePng(width, height, seed) {
   ]);
 }
 
-/** Starts the demo Endpoint on `port` (0 = any free port). Resolves to its base URL. */
-export function startDemoRunpod(port = 0) {
+/**
+ * Starts the demo Endpoint on `port` (0 = any free port). Resolves to `{ url, close }`, where
+ * `url` is the base URL to use as RUNPOD_API_BASE. `unknownJobStatus` is the HTTP status for
+ * Jobs this Endpoint didn't create.
+ */
+export function startDemoRunpod(port = 0, { unknownJobStatus = 404 } = {}) {
   const jobs = new Map();
   let counter = 0;
 
@@ -96,11 +102,16 @@ export function startDemoRunpod(port = 0) {
       if (match[1] === "cancel" && req.method === "POST") jobs.get(match[2]).cancelled = true;
       return reply(res, 200, statusOf(match[2]));
     }
-    reply(res, 404, { error: "job not found" });
+    reply(res, unknownJobStatus, { error: "job not found" });
   });
 
   return new Promise((resolve, reject) => {
     server.once("error", reject);
-    server.listen(port, "127.0.0.1", () => resolve(`http://127.0.0.1:${server.address().port}`));
+    server.listen(port, "127.0.0.1", () =>
+      resolve({
+        url: `http://127.0.0.1:${server.address().port}`,
+        close: () => new Promise((done) => server.close(() => done())),
+      }),
+    );
   });
 }
