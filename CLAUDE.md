@@ -11,3 +11,7 @@ The five canonical roles, each label named after its role. See `docs/agents/tria
 ### Domain docs
 
 Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### Web app
+
+Before running, testing or writing code in `web/`, read `docs/agents/web-dev.md` (shared Supabase stack, Next 16 docs, browser and Windows gotchas).
