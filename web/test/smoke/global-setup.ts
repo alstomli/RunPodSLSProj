@@ -12,7 +12,7 @@ const distDir = ".next-smoke";
 
 export default async function globalSetup() {
   const stack = ensureStack();
-  const runpod = await startDemoRunpod(0, { unknownJobStatus: 400 });
+  const runpod = await startDemoRunpod(0);
 
   const port = await freePort();
   const env: NodeJS.ProcessEnv = {

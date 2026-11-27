@@ -151,8 +151,7 @@ describe("restarts and repeated runs", () => {
     const { user, job: created, view } = await userWithJob();
     runpod.script({ statuses: [completed(created.seed)] });
 
-    const twoAppsFollowAtOnce = () => Promise.all([processPendingJobs({ userId: user.id }), processPendingJobs({ userId: user.id })]);
-    await twoAppsFollowAtOnce();
+    await Promise.all([processPendingJobs({ userId: user.id }), processPendingJobs({ userId: user.id })]);
     const first = await view();
     await processPendingJobs({ userId: user.id });
 

@@ -1,4 +1,3 @@
-
 export const IMAGE_STATUSES = ["pending", "in_queue", "in_progress", "completed", "failed", "cancelled"] as const;
 
 export type ImageStatus = (typeof IMAGE_STATUSES)[number];

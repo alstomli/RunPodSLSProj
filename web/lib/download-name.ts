@@ -1,4 +1,3 @@
-
 const MAX_SLUG = 50;
 
 export function downloadFileName(prompt: string, seed: number): string {

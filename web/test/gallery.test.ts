@@ -188,8 +188,7 @@ describe("two Users, A and B", () => {
     runpod.script({ statuses: [status("COMPLETED", { output: { image_base64: resizablePng.toString("base64") } })] });
     await processPendingJobs({ userId: a.user.id });
     const path = `/_next/image?url=${encodeURIComponent(`/api/images/${job.id}/file`)}&w=64&q=75`;
-    const primeOptimizerCacheAsA = () => a.browser.get(path);
-    await primeOptimizerCacheAsA();
+    await a.browser.get(path);
 
     const response = await new Browser().get(path);
 

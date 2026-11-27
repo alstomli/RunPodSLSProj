@@ -1,4 +1,3 @@
-
 export const DEFAULTS = { width: 1024, height: 1024, steps: 28, guidance: 3.5 } as const;
 
 export const MAX_SEED = 2 ** 32 - 1;
