@@ -1,3 +1,4 @@
+import { Gallery } from "./gallery";
 import { Generator } from "./generator";
 import { SignOutButton } from "./sign-out-button";
 
@@ -10,6 +11,7 @@ export default function MainPage() {
         <SignOutButton />
       </header>
       <Generator />
+      <Gallery />
     </main>
   );
 }
