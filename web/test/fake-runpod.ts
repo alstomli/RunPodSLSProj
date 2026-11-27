@@ -2,7 +2,7 @@
  * A fake Runpod Endpoint: a small local HTTP server, copied from the FakeRunpod in
  * test_generate.py. Point RUNPOD_API_BASE at `url`.
  *
- * - POST /run           answers the `run` reply (default: a new Job id, IN_QUEUE)
+ * - POST /run           answers the `run` reply (default: a new Job id, IN_QUEUE); a list plays in order, the last one repeats
  * - GET  /status/<job>  plays the `statuses` replies in order; the last one repeats
  * - POST /cancel/<job>  answers the `cancel` reply (default: CANCELLED)
  * - anything else       404
@@ -15,7 +15,7 @@ import type { AddressInfo } from "node:net";
 
 export type Reply = { status: number; body?: unknown } | "drop";
 
-export type Script = { run?: Reply; cancel?: Reply; statuses?: Reply[] };
+export type Script = { run?: Reply | Reply[]; cancel?: Reply; statuses?: Reply[] };
 
 export type RecordedRequest = {
   method: string;
@@ -31,9 +31,16 @@ export function status(name: string, extra: Record<string, unknown> = {}): Reply
 
 let jobCounter = 0;
 
+type Current = { run: Reply[]; cancel: Reply; statuses: Reply[] };
+
+/** The next reply of a list: plays in order, the last one repeats. */
+function next(replies: Reply[]): Reply {
+  return replies.length > 1 ? replies.shift()! : replies[0];
+}
+
 export class FakeRunpod {
   readonly requests: RecordedRequest[] = [];
-  private current: Required<Script> = FakeRunpod.defaults();
+  private current: Current = FakeRunpod.defaults();
 
   private constructor(
     private readonly server: http.Server,
@@ -54,15 +61,15 @@ export class FakeRunpod {
     return holder.fake;
   }
 
-  private static defaults(): Required<Script> {
-    return { run: { status: 200, body: { status: "IN_QUEUE" } }, cancel: { status: 200, body: { status: "CANCELLED" } }, statuses: [status("IN_QUEUE")] };
+  private static defaults(): Current {
+    return { run: [{ status: 200, body: { status: "IN_QUEUE" } }], cancel: { status: 200, body: { status: "CANCELLED" } }, statuses: [status("IN_QUEUE")] };
   }
 
   /** Replaces the scripted replies (unset ones get the defaults) and forgets earlier requests. */
   script(script: Script) {
     const defaults = FakeRunpod.defaults();
     this.current = {
-      run: script.run ?? defaults.run,
+      run: script.run === undefined ? defaults.run : Array.isArray(script.run) ? [...script.run] : [script.run],
       cancel: script.cancel ?? defaults.cancel,
       statuses: [...(script.statuses?.length ? script.statuses : defaults.statuses)],
     };
@@ -96,11 +103,10 @@ export class FakeRunpod {
     let jobId: string | undefined;
     let match: RegExpMatchArray | null;
     if (req.method === "POST" && path === "/run") {
-      reply = this.current.run;
+      reply = next(this.current.run);
       jobId = `job-${++jobCounter}-${Math.random().toString(36).slice(2, 8)}`;
     } else if (req.method === "GET" && (match = path.match(/^\/status\/([^/]+)$/))) {
-      const statuses = this.current.statuses;
-      reply = statuses.length > 1 ? statuses.shift()! : statuses[0];
+      reply = next(this.current.statuses);
       jobId = decodeURIComponent(match[1]);
     } else if (req.method === "POST" && (match = path.match(/^\/cancel\/([^/]+)$/))) {
       reply = this.current.cancel;

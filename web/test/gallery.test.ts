@@ -181,9 +181,7 @@ describe("two Users, A and B", () => {
     }
   });
 
-  // Needs the Cancel route (POST /api/jobs/:id/cancel), which ticket #7 adds. Turn this on once
-  // #7 is merged into feature/web-frontend.
-  it.skip("B gets 404 cancelling A's Job, and nothing reaches Runpod", async () => {
+  it("B gets 404 cancelling A's Job, and nothing reaches Runpod", async () => {
     const a = await signedIn();
     const job = await startJob(a.browser, "A's running Job");
     const b = await signedIn();

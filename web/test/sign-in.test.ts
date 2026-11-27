@@ -27,6 +27,7 @@ describe("a visitor who isn't signed in", () => {
       ["GET", "/api/no-such-route"],
       ["POST", "/api/jobs"],
       ["GET", "/api/jobs/00000000-0000-4000-8000-000000000000"],
+      ["POST", "/api/jobs/00000000-0000-4000-8000-000000000000/cancel"],
       ["GET", "/api/images/00000000-0000-4000-8000-000000000000/file"],
       ["GET", "/api/images/00000000-0000-4000-8000-000000000000/file?download=1"],
       ["GET", "/api/images"],
