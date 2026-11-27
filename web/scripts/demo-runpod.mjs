@@ -1,13 +1,15 @@
 // A stand-in Runpod Endpoint for trying the app by hand (`npm run dev:local -- --fake-runpod`).
 // Unlike test/fake-runpod.ts, which plays back scripted replies, this one plays every Job
 // through on its own clock: IN_QUEUE for 3 s, IN_PROGRESS until 8 s, then COMPLETED with a
-// generated PNG of the requested size. A prompt containing "fail" ends FAILED. /cancel works.
+// generated PNG of the requested size. A prompt containing "fail" ends FAILED, "error" ends with
+// a Worker error, and "cold" waits 30 s in the queue first (a Cold start). /cancel works.
 // Jobs it didn't create answer 404, like an expired result on Runpod.
 import http from "node:http";
 import zlib from "node:zlib";
 
 const QUEUE_MS = 3000;
 const RUN_MS = 8000;
+const COLD_START_MS = 30000;
 
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   let c = n;
@@ -69,10 +71,11 @@ export function startDemoRunpod(port = 0) {
   function statusOf(id) {
     const job = jobs.get(id);
     if (job.cancelled) return { id, status: "CANCELLED" };
-    const age = Date.now() - job.started;
+    const age = Date.now() - job.started - (/cold/i.test(job.input.prompt ?? "") ? COLD_START_MS : 0);
     if (age < QUEUE_MS) return { id, status: "IN_QUEUE" };
     if (age < RUN_MS) return { id, status: "IN_PROGRESS" };
     if (/fail/i.test(job.input.prompt ?? "")) return { id, status: "FAILED", error: "The demo Worker was told to fail." };
+    if (/error/i.test(job.input.prompt ?? "")) return { id, status: "COMPLETED", output: { error: "The demo Worker returned an error." } };
     const { width = 1024, height = 1024, seed = 0 } = job.input;
     job.png ??= makePng(width, height, seed).toString("base64");
     return { id, status: "COMPLETED", output: { image_base64: job.png, ...job.input } };

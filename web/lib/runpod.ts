@@ -39,10 +39,45 @@ export class RunpodError extends Error {
 
 export type Runpod = ReturnType<typeof runpodClient>;
 
-export function runpodClient(settings: Pick<Config, "runpodApiBase" | "runpodApiKey"> = config()) {
+/**
+ * Waits before each retry of a 429 or 5xx reply. Short, because the follower polls again every
+ * few seconds anyway (the CLI client simply polls again too) and the cancel route must answer at once.
+ */
+export const RETRY_DELAYS_MS = [250, 500, 1000];
+
+/** A reply worth asking again for: rate limited, or a server error on Runpod's side. */
+function retryable(status: number) {
+  return status === 429 || status >= 500;
+}
+
+export function runpodClient(
+  settings: Pick<Config, "runpodApiBase" | "runpodApiKey"> = config(),
+  retryDelaysMs: readonly number[] = RETRY_DELAYS_MS,
+) {
   const { runpodApiBase: base, runpodApiKey: key } = settings;
 
-  async function call(method: "GET" | "POST", path: string, body?: unknown): Promise<RunpodJob> {
+  /**
+   * One Runpod call, retrying 429 and 5xx replies. `safeToRepeat` is false for /run: a 5xx there
+   * may have queued the Job already, so only a 429 (refused outright) is retried.
+   */
+  async function call(method: "GET" | "POST", path: string, body?: unknown, safeToRepeat = true): Promise<RunpodJob> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await callOnce(method, path, body);
+      } catch (error) {
+        const status = (error as RunpodError).status;
+        const again =
+          error instanceof RunpodError &&
+          status !== undefined &&
+          (safeToRepeat ? retryable(status) : status === 429) &&
+          attempt < retryDelaysMs.length;
+        if (!again) throw error;
+        await new Promise((resolve) => setTimeout(resolve, retryDelaysMs[attempt]));
+      }
+    }
+  }
+
+  async function callOnce(method: "GET" | "POST", path: string, body?: unknown): Promise<RunpodJob> {
     let response: Response;
     try {
       response = await fetch(`${base}${path}`, {
@@ -72,7 +107,7 @@ export function runpodClient(settings: Pick<Config, "runpodApiBase" | "runpodApi
   return {
     /** POST /run. Returns the Runpod Job id. */
     async submit(input: JobInput): Promise<string> {
-      const job = await call("POST", "/run", { input });
+      const job = await call("POST", "/run", { input }, false);
       if (typeof job.id !== "string" || !job.id) throw new RunpodError("Runpod accepted the Job but sent no Job id");
       return job.id;
     },

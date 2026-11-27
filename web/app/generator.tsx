@@ -41,7 +41,7 @@ export function Generator() {
   return (
     <div style={{ display: "grid", gap: 24 }}>
       <GenerateForm disabled={running} onCreated={setJob} />
-      {job && <CurrentJob job={job} />}
+      {job && <CurrentJob key={job.id} job={job} />}
     </div>
   );
 }
