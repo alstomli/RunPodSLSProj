@@ -28,7 +28,7 @@ The container listens on port 3000 (`PORT` and `HOSTNAME` are set in the image; 
 ```sh
 npm install
 npx supabase start      # local Supabase in Docker, built from supabase/migrations
-npm run dev:local       # app on http://127.0.0.1:3000 against the local stack; Runpod is never called
+npm run dev:local       # app on http://localhost:3000 against the local stack; Runpod is never called
 npm test                # Vitest: real HTTP routes, local Supabase, fake Runpod
 npm run check           # typecheck, lint and npm test: what CI runs on every pull request
 npm run test:container  # builds the Docker image and tests a container against the local stack
