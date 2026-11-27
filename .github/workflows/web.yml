@@ -56,6 +56,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Supabase's ports (54320-54329) sit in Linux's ephemeral range; reserve them before the
+      # downloads, or an outgoing connection can hold one and `supabase start` can't bind it.
+      - name: Reserve Supabase's ports
+        run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=54320-54329
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -65,7 +70,14 @@ jobs:
       - run: npm ci
 
       - name: Start the local Supabase stack
-        run: npx supabase start -x studio,mailpit,edge-runtime,logflare,vector,realtime,postgres-meta,supavisor
+        run: |
+          start() { npx supabase start -x studio,mailpit,edge-runtime,logflare,vector,realtime,postgres-meta,supavisor; }
+          if ! start; then
+            echo "::warning::supabase start failed; what holds Supabase's ports:"
+            sudo ss -tanp | grep -E ':5432[0-9][[:space:]]' || echo "(nothing)"
+            npx supabase stop --no-backup
+            start
+          fi
 
       - run: npm run check
 
