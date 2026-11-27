@@ -100,11 +100,12 @@ docker run --rm -p 3000:3000 \
 `http://host.docker.internal:54321` as `SUPABASE_URL`, since `127.0.0.1` inside the container
 is the container itself. Starting the server also starts the Job follower; there is nothing else to run.
 
-The GitHub Actions workflow `../.github/workflows/web.yml` has two jobs, both only for changes to `web/`:
+The GitHub Actions workflow `../.github/workflows/web.yml` has two main jobs:
 
 - `check`, on every pull request: `npm run check` against a local Supabase stack started in the job.
-- `publish`, on every push to `master`: builds this image and publishes it to GitHub Container
-  Registry as `ghcr.io/alstomli/runpodslsproj-web`, tagged `latest` and with the commit SHA.
+  A pull request that changes nothing under `web/` skips it, and GitHub counts the skip as passed.
+- `publish`, on every push to `master` that changes `web/`: builds this image and publishes it to
+  GitHub Container Registry as `ghcr.io/alstomli/runpodslsproj-web`, tagged `latest` and with the commit SHA.
 
 `publish` doesn't re-run the tests: `master` takes changes only through pull requests that passed
 `check` and were up to date with `master` (a repository ruleset the owner sets up).

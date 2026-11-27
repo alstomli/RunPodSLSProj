@@ -1,5 +1,7 @@
 # The web app's CI.
 # Pull requests: typecheck, lint and Vitest against a local Supabase stack (fake Runpod).
+# Every pull request gets a `check` result so the ruleset can require it: when nothing under web/
+# changed, `check` is skipped, which GitHub counts as passed.
 # Pushes to master: build web/Dockerfile and publish it to ghcr.io/alstomli/runpodslsproj-web,
 # tagged `latest` and with the commit SHA. Master takes changes only through pull requests that
 # passed `check` and were up to date with master (repository ruleset), so publish doesn't re-test.
@@ -7,9 +9,6 @@ name: Web
 
 on:
   pull_request:
-    paths:
-      - "web/**"
-      - ".github/workflows/web.yml"
   push:
     branches: [master]
     paths:
@@ -20,8 +19,32 @@ permissions:
   contents: read
 
 jobs:
-  check:
+  changes:
     if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - id: filter
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FILES_URL: repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files
+        run: |
+          # When the file list can't be read, run the checks rather than skip them.
+          if ! files=$(gh api --paginate "$FILES_URL" --jq '.[].filename'); then
+            echo "web=true" >> "$GITHUB_OUTPUT"
+          elif grep -qE '^(web/|\.github/workflows/web\.yml$)' <<< "$files"; then
+            echo "web=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "web=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  check:
+    needs: changes
+    # Skipped only when `changes` ran and found nothing under web/; if `changes` failed, check anyway.
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && (needs.changes.result != 'success' || needs.changes.outputs.web != 'false') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
@@ -33,6 +56,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Supabase's ports (54320-54329) sit in Linux's ephemeral range; reserve them before the
+      # downloads, or an outgoing connection can hold one and `supabase start` can't bind it.
+      - name: Reserve Supabase's ports
+        run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=54320-54329
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -42,7 +70,14 @@ jobs:
       - run: npm ci
 
       - name: Start the local Supabase stack
-        run: npx supabase start -x studio,mailpit,edge-runtime,logflare,vector,realtime,postgres-meta,supavisor
+        run: |
+          start() { npx supabase start -x studio,mailpit,edge-runtime,logflare,vector,realtime,postgres-meta,supavisor; }
+          if ! start; then
+            echo "::warning::supabase start failed; what holds Supabase's ports:"
+            sudo ss -tanp | grep -E ':5432[0-9][[:space:]]' || echo "(nothing)"
+            npx supabase stop --no-backup
+            start
+          fi
 
       - run: npm run check
 
