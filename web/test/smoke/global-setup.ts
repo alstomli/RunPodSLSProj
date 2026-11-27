@@ -1,7 +1,3 @@
-/**
- * The demo Runpod answers 400 (not Runpod's 404) for Jobs it didn't create, so this server's follower,
- * whose timer is on, leaves other test runs' unfinished Jobs in the shared database alone.
- */
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
@@ -30,7 +26,7 @@ export default async function globalSetup() {
     NEXT_DIST_DIR: distDir,
     NEXT_TELEMETRY_DISABLED: "1",
   };
-  delete env.JOB_FOLLOWER; // the timer stays on
+  delete env.JOB_FOLLOWER;
 
   fs.mkdirSync(path.join(web, distDir), { recursive: true });
   const logFile = path.join(web, distDir, "smoke-server.log");
@@ -57,9 +53,7 @@ export default async function globalSetup() {
     const { error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
     if (error) throw error;
 
-    // The browser opens localhost, not 127.0.0.1: Next's dev server refuses its HMR socket to
-    // 127.0.0.1, and the page would never hydrate.
-    process.env.SMOKE_APP_URL = `http://localhost:${port}`;
+    process.env.SMOKE_APP_URL = `http://127.0.0.1:${port}`;
     process.env.SMOKE_USER_EMAIL = email;
     process.env.SMOKE_USER_PASSWORD = password;
   } catch (error) {

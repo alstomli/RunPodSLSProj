@@ -5,12 +5,6 @@ import { runpodClient } from "@/lib/runpod";
 import { notSignedIn, requestSession } from "@/lib/session";
 import { MAX_SEED, validateSettings } from "@/lib/settings";
 
-/**
- * Store the row as pending, submit to Runpod, then record the Runpod Job id: a crash after
- * submitting can't lose a billed Job, because the follower fails rows that never got their id.
- * Row-level security lets the User record the id (or Runpod's refusal) on their own new row once
- * (supabase/migrations/*_store_jobs_before_runpod.sql).
- */
 export async function POST(request: NextRequest) {
   const session = await requestSession(request);
   if (!session.user) return session.respond(notSignedIn());
@@ -61,8 +55,6 @@ export async function POST(request: NextRequest) {
 
   const { data, error } = await record({ runpod_job_id: runpodJobId });
   if (error || !data) {
-    // The row is gone or no longer waiting for its id (the follower gave up on it): nothing would
-    // ever save this Job, so don't leave it running and costing money.
     console.error(`Couldn't record Runpod Job ${runpodJobId} on Image ${id}: ${error?.message ?? "row not pending"}`);
     await runpod.cancel(runpodJobId).catch(() => undefined);
     return couldNotSave();

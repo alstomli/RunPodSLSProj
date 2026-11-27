@@ -29,7 +29,6 @@ export class RunpodError extends Error {
 
 export type Runpod = ReturnType<typeof runpodClient>;
 
-/** Short: the follower polls again within seconds anyway, and the cancel route must answer at once. */
 export const RETRY_DELAYS_MS = [250, 500, 1000];
 
 function retryable(status: number) {
@@ -42,10 +41,6 @@ export function runpodClient(
 ) {
   const { runpodApiBase: base, runpodApiKey: key } = config;
 
-  /**
-   * One Runpod call, retrying 429 and 5xx replies. `safeToRepeat` is false for /run: a 5xx there
-   * may have queued the Job already, so only a 429 (refused outright) is retried.
-   */
   async function call(method: "GET" | "POST", path: string, body?: unknown, safeToRepeat = true): Promise<RunpodReply> {
     for (let attempt = 0; ; attempt++) {
       try {

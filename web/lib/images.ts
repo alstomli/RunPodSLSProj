@@ -22,14 +22,12 @@ export type ImageRow = {
   finished_at: string | null;
 };
 
-/** The Storage policy keys on the first folder, the User's id. */
 export function imageFilePath(userId: string, imageId: string) {
   return `${userId}/${imageId}.png`;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** A malformed id must be a plain 404, not a database error. */
 export function isImageId(id: string) {
   return UUID.test(id);
 }

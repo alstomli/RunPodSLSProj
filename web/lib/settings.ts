@@ -1,4 +1,3 @@
-// Shared by the browser form and the server: keep server-only code out. The limits mirror handler.py.
 
 export const DEFAULTS = { width: 1024, height: 1024, steps: 28, guidance: 3.5 } as const;
 

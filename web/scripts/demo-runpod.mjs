@@ -1,11 +1,11 @@
-// A demo Runpod for `npm run dev:local -- --fake-runpod`. Prompts containing "fail", "error" or
-// "cold" end FAILED, end with a Worker error, or wait 30 s in the queue first (a Cold start).
 import http from "node:http";
 import zlib from "node:zlib";
 
 const QUEUE_MS = 3000;
 const RUN_MS = 8000;
 const COLD_START_MS = 30000;
+const PNG_BIT_DEPTH_8 = 8;
+const PNG_COLOR_TYPE_RGB = 2;
 
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   let c = n;
@@ -43,8 +43,8 @@ export function makePng(width, height, seed) {
   const header = Buffer.alloc(13);
   header.writeUInt32BE(width, 0);
   header.writeUInt32BE(height, 4);
-  header[8] = 8; // bit depth
-  header[9] = 2; // RGB
+  header[8] = PNG_BIT_DEPTH_8;
+  header[9] = PNG_COLOR_TYPE_RGB;
   return Buffer.concat([
     Buffer.from("89504e470d0a1a0a", "hex"),
     chunk("IHDR", header),

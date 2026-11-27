@@ -56,6 +56,5 @@ test("sign in, generate an Image, watch it finish and download it", async ({ pag
   await download.saveAs(saved);
   const bytes = fs.readFileSync(saved);
   expect(bytes.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)).toBe(true);
-  // The exact image the fake Endpoint made for this seed: the Job went to the fake, not the real Endpoint.
-  expect(bytes.equals(makePng(1024, 1024, seed))).toBe(true);
+  expect(bytes.equals(makePng(1024, 1024, seed)), "the fake Endpoint's PNG for this seed").toBe(true);
 });

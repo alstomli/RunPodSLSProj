@@ -4,7 +4,6 @@ import { defineConfig } from "vitest/config";
 
 const web = path.dirname(fileURLToPath(import.meta.url));
 
-// Kept out of `npm test` because building the image takes minutes.
 export default defineConfig({
   resolve: { alias: { "@": web } },
   test: {

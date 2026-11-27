@@ -55,18 +55,13 @@ export async function waitForServer(url: string, child: ChildProcess, logFile: s
   const deadline = Date.now() + 120_000;
   while (Date.now() < deadline) {
     if (child.exitCode !== null) break;
-    try {
-      const response = await fetch(`${url}/sign-in`, { redirect: "manual" });
-      if (response.status < 500) return;
-    } catch {
-      // not listening yet
-    }
+    const response = await fetch(`${url}/sign-in`, { redirect: "manual" }).catch(() => null);
+    if (response && response.status < 500) return;
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   throw new Error(`The test app server did not start. See ${logFile}`);
 }
 
-/** Starts the stack if it isn't running; never stops or resets it, because other worktrees share it. */
 export function ensureStack(): Record<string, string> {
   let stack = readStack();
   if (!stack) {
@@ -93,7 +88,6 @@ export default async function setup(project: TestProject) {
     RUNPOD_API_KEY: TEST_RUNPOD.apiKey,
     RUNPOD_ENDPOINT_ID: TEST_RUNPOD.endpointId,
     RUNPOD_API_BASE: `http://127.0.0.1:${runpodPort}`,
-    // Tests step the follower themselves with processPendingJobs({ userId }).
     JOB_FOLLOWER: "off",
   };
 

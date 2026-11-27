@@ -1,4 +1,3 @@
-/** Only a-z, 0-9, `-` and `_`: the file route puts it in Content-Disposition unescaped. */
 
 const MAX_SLUG = 50;
 

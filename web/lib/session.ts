@@ -7,8 +7,6 @@ import { config } from "./config";
 type CookieToSet = { name: string; value: string; options: Parameters<NextResponse["cookies"]["set"]>[2] };
 
 export async function requestSession(request: NextRequest) {
-  // Never at build time: with Cache Components a GET route is prerendered at build unless it
-  // waits for a request, and configuration only exists when the server runs.
   await connection();
   const { supabaseUrl, supabaseAnonKey } = config();
   const cookies = new Map<string, CookieToSet>();
@@ -19,7 +17,6 @@ export async function requestSession(request: NextRequest) {
       getAll: () => request.cookies.getAll(),
       setAll(list, extraHeaders) {
         for (const cookie of list) {
-          // Later code in this request (and the route behind the proxy) sees the new value.
           request.cookies.set(cookie.name, cookie.value);
           cookies.set(cookie.name, cookie);
         }
@@ -28,8 +25,6 @@ export async function requestSession(request: NextRequest) {
     },
   });
 
-  // getUser asks Supabase Auth, so a signed-out or revoked session is rejected
-  // even while its token has not expired yet.
   const { data } = await supabase.auth.getUser();
   const user: User | null = data.user;
 

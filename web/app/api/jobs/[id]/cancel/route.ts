@@ -13,7 +13,6 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/jobs/[i
     return session.respond(NextResponse.json({ error: "The Job has already finished." }, { status: 409 }));
   }
   if (!row.runpod_job_id) {
-    // Stored, and its submit is still under way (see the create route).
     return session.respond(
       NextResponse.json({ error: "The Job has not reached Runpod yet. Try again in a moment." }, { status: 409 }),
     );

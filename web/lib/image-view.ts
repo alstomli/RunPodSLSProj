@@ -1,4 +1,3 @@
-// Shared by the server routes and the page: keep server-only code out.
 
 export const IMAGE_STATUSES = ["pending", "in_queue", "in_progress", "completed", "failed", "cancelled"] as const;
 
