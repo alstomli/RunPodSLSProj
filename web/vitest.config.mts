@@ -14,6 +14,8 @@ export default defineConfig({
   },
   test: {
     include: ["test/**/*.test.ts"],
+    // The container image tests have their own run: npm run test:container.
+    exclude: ["test/container/**", "node_modules/**"],
     environment: "node",
     // Starts (or reuses) the local Supabase stack and one Next.js dev server for the whole run.
     globalSetup: ["test/global-setup.ts"],
