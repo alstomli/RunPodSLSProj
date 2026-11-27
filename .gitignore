@@ -8,3 +8,4 @@ __pycache__/
 images/
 .pytest_cache/
 supabase/.temp/
+.claude/worktrees/

@@ -1,0 +1,48 @@
+import "server-only";
+
+/**
+ * All configuration, read from environment variables at run time (never at build time,
+ * so one container image works for any deployment). Server only: none of it reaches the browser.
+ */
+export type Config = {
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+  /** Only the Job follower may use this. */
+  supabaseServiceRoleKey: string;
+  runpodApiKey: string;
+  runpodEndpointId: string;
+  /** Defaults to https://api.runpod.ai/v2/<endpoint id>; tests point it at the fake Runpod. */
+  runpodApiBase: string;
+};
+
+const REQUIRED = [
+  "SUPABASE_URL",
+  "SUPABASE_ANON_KEY",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "RUNPOD_API_KEY",
+  "RUNPOD_ENDPOINT_ID",
+] as const;
+
+export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
+  const missing = REQUIRED.filter((name) => !env[name]?.trim());
+  if (missing.length) {
+    throw new Error(`Missing environment variable(s): ${missing.join(", ")}`);
+  }
+  const value = (name: (typeof REQUIRED)[number]) => env[name]!.trim();
+  const endpointId = value("RUNPOD_ENDPOINT_ID");
+  return {
+    supabaseUrl: value("SUPABASE_URL"),
+    supabaseAnonKey: value("SUPABASE_ANON_KEY"),
+    supabaseServiceRoleKey: value("SUPABASE_SERVICE_ROLE_KEY"),
+    runpodApiKey: value("RUNPOD_API_KEY"),
+    runpodEndpointId: endpointId,
+    runpodApiBase: (env.RUNPOD_API_BASE?.trim() || `https://api.runpod.ai/v2/${endpointId}`).replace(/\/+$/, ""),
+  };
+}
+
+let cached: Config | undefined;
+
+/** The configuration, read once per server process (first call is in instrumentation.ts at boot). */
+export function config(): Config {
+  return (cached ??= loadConfig());
+}
