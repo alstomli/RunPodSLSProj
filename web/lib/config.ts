@@ -13,6 +13,8 @@ export type Config = {
   runpodEndpointId: string;
   /** Defaults to https://api.runpod.ai/v2/<endpoint id>; tests point it at the fake Runpod. */
   runpodApiBase: string;
+  /** Run the Job follower every few seconds. Tests turn it off with JOB_FOLLOWER=off and step it themselves. */
+  jobFollowerTimer: boolean;
 };
 
 const REQUIRED = [
@@ -37,6 +39,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     runpodApiKey: value("RUNPOD_API_KEY"),
     runpodEndpointId: endpointId,
     runpodApiBase: (env.RUNPOD_API_BASE?.trim() || `https://api.runpod.ai/v2/${endpointId}`).replace(/\/+$/, ""),
+    jobFollowerTimer: env.JOB_FOLLOWER?.trim().toLowerCase() !== "off",
   };
 }
 

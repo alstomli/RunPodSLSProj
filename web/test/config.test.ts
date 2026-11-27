@@ -21,4 +21,9 @@ describe("configuration", () => {
     expect(loadConfig(ENV).runpodApiBase).toBe("https://api.runpod.ai/v2/ep1");
     expect(loadConfig({ ...ENV, RUNPOD_API_BASE: "http://127.0.0.1:9999/" }).runpodApiBase).toBe("http://127.0.0.1:9999");
   });
+
+  it("runs the Job follower timer unless JOB_FOLLOWER is off", () => {
+    expect(loadConfig(ENV).jobFollowerTimer).toBe(true);
+    expect(loadConfig({ ...ENV, JOB_FOLLOWER: "off" }).jobFollowerTimer).toBe(false);
+  });
 });

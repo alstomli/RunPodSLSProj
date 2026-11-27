@@ -69,6 +69,8 @@ export default async function setup(project: TestProject) {
     RUNPOD_API_KEY: "container-test",
     RUNPOD_ENDPOINT_ID: "container-test",
     RUNPOD_API_BASE: "http://host.docker.internal:9", // nothing listens here; Runpod is never called
+    // No live Job follower: the shared local database holds other tests' unfinished Jobs.
+    JOB_FOLLOWER: "off",
   };
 
   const port = await freePort();

@@ -1,5 +1,6 @@
 import "server-only";
 import { config } from "./config";
+import { startJobFollower } from "./follower";
 
 /** Called once at Node server boot (instrumentation.ts). */
 export function startServer() {
@@ -11,5 +12,6 @@ export function startServer() {
     console.error(`Can't start: ${(error as Error).message}`);
     process.exit(1);
   }
-  // Later: start the Job follower timer here.
+  // Its first run picks up Jobs left unfinished before a restart.
+  if (config().jobFollowerTimer) startJobFollower();
 }
