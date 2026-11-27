@@ -20,6 +20,7 @@ Nothing is baked in at build time, and the browser never talks to Supabase or Ru
 | `RUNPOD_ENDPOINT_ID` | The Endpoint to send Jobs to |
 | `RUNPOD_API_BASE` | Optional. Overrides `https://api.runpod.ai/v2/<endpoint id>` |
 
+On the pod, `RUNPOD_API_KEY` comes from a Runpod Secret (see [Deploying](#deploying-steps-only-the-owner-can-do)).
 The container listens on port 3000 (`PORT` and `HOSTNAME` are set in the image; leave them alone).
 
 ## Working on it
@@ -79,7 +80,7 @@ page the newest unfinished Job after a reload. Next's image optimizer is off
 - `lib/config.ts` configuration from the environment
 - `supabase/` local stack config and migrations (the same migrations go to the hosted project)
 - `test/` Vitest tests, the fake Runpod and test helpers; `test/container/` tests the Docker image; `test/smoke/` is the Playwright browser smoke test
-- `Dockerfile`, `.dockerignore` the container image
+- `Dockerfile`, `.dockerignore` the container image (published by `../.github/workflows/web-image.yml`)
 
 ## Container image
 
@@ -98,3 +99,53 @@ docker run --rm -p 3000:3000 \
 (`-e NAME` passes the value from your shell.) Against the local Supabase stack, use
 `http://host.docker.internal:54321` as `SUPABASE_URL`, since `127.0.0.1` inside the container
 is the container itself. Starting the server also starts the Job follower; there is nothing else to run.
+
+The GitHub Actions workflow `../.github/workflows/web-image.yml` runs on every push to `master`
+that changes `web/`. It builds this image and publishes it to GitHub Container Registry as
+`ghcr.io/alstomli/runpodslsproj-web`, tagged `latest` and with the commit SHA. It does not run the tests.
+
+## Deploying (steps only the owner can do)
+
+The app runs on a Runpod CPU pod that keeps no data; everything lives in Supabase. Never put a
+real email address, password or key in this repository.
+
+1. **Create the Supabase project** at [supabase.com](https://supabase.com) (the free plan is
+   enough; it pauses after about a week without activity and stores about 1 GB of files).
+   Note the project URL, the anon key and the service role key (dashboard: *Project Settings →
+   API Keys*; the service role key is a secret, keep it out of the repository).
+   Under *Authentication → Sign In / Providers*, turn off *Allow new users to sign up*.
+2. **Apply the migrations** (schema, row-level security, Storage bucket and policies) from this folder:
+   ```sh
+   npx supabase login
+   npx supabase link --project-ref <your-project-ref>
+   npx supabase db push
+   ```
+   `link` asks for the database password you chose in step 1.
+   Run `npx supabase db push` again whenever new files appear in `supabase/migrations/`.
+3. **Create the first User** in the Supabase dashboard: *Authentication → Users → Add user →
+   Create new user*, with your email and a password, and *Auto Confirm User* ticked.
+   Add more Users the same way.
+4. **Make sure the Runpod Secret holding the API key exists**: Runpod console → *Secrets*.
+   Note its name; the pod reads it as `{{ RUNPOD_SECRET_<name> }}`. The key needs access to the Endpoint.
+5. **Make the GHCR package public** after the workflow has run once: GitHub → your profile →
+   *Packages* → `runpodslsproj-web` → *Package settings* → *Change visibility* → *Public*.
+   (Runpod pulls the image without credentials.)
+6. **Create the CPU pod**: Runpod console → *Pods* → *Deploy* → *CPU*, with
+   - container image `ghcr.io/alstomli/runpodslsproj-web:latest`
+     (or a commit SHA tag to pin a version),
+   - *Expose HTTP ports*: `3000`, no volume (the pod keeps nothing),
+   - environment variables:
+
+     | Variable | Value |
+     |---|---|
+     | `SUPABASE_URL` | the project URL from step 1 |
+     | `SUPABASE_ANON_KEY` | the anon key from step 1 |
+     | `SUPABASE_SERVICE_ROLE_KEY` | the service role key from step 1 |
+     | `RUNPOD_ENDPOINT_ID` | the FLUX.1-dev Endpoint's id |
+     | `RUNPOD_API_KEY` | `{{ RUNPOD_SECRET_<name> }}`, the Secret from step 4 |
+
+   The app is then at `https://<pod id>-3000.proxy.runpod.net`. Sign in with the User from step 3.
+   If the pod's logs say `Missing environment variable(s): ...`, add that variable and restart.
+
+Start and stop the pod by hand. A new image is published on every push to `master`; to run it,
+restart or redeploy the pod so it pulls `latest` again, or set the image to the new SHA tag.
