@@ -1,9 +1,4 @@
 // npm run dev:local [-- --prod] [-- --port 3000] [-- --fake-runpod]
-// Runs the app against the local Supabase stack (read from `supabase status`), with Runpod
-// pointed at a local address so the real Endpoint is never called (these override any values in
-// your shell). --prod runs the production build (`npm run build` first).
-// --fake-runpod starts a demo Endpoint (scripts/demo-runpod.mjs) that plays every Job through to
-// a generated PNG, so you can make Images by hand. Without it, Runpod points at a dead port.
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -53,5 +48,4 @@ if (prod) {
 // In dev, open localhost: Next's dev server refuses its HMR socket to 127.0.0.1, and the page never hydrates.
 console.log(`App: http://${prod ? "127.0.0.1" : "localhost"}:${port} (Supabase ${env.SUPABASE_URL}, Runpod ${env.RUNPOD_API_BASE})`);
 const child = spawn(process.execPath, command, { cwd: web, env, stdio: "inherit" });
-// The demo Endpoint (--fake-runpod) lives in this process, so it stops with the app.
 child.on("exit", (code) => process.exit(code ?? 0));

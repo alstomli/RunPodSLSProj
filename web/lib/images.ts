@@ -2,12 +2,9 @@ import "server-only";
 import type { ImageStatus, ImageView } from "./image-view";
 import type { RequestSession } from "./session";
 
-/** The Images table (supabase/migrations/*_images.sql) and the Storage bucket that holds the PNGs. */
-
 export const IMAGES_TABLE = "images";
 export const IMAGES_BUCKET = "images";
 
-/** A row of the Images table. */
 export type ImageRow = {
   id: string;
   user_id: string;
@@ -25,22 +22,18 @@ export type ImageRow = {
   finished_at: string | null;
 };
 
-/** Where an Image's PNG lives in the bucket. The Storage policy keys on the first folder. */
+/** The Storage policy keys on the first folder, the User's id. */
 export function imageFilePath(userId: string, imageId: string) {
   return `${userId}/${imageId}.png`;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** True if `id` can be an Image id (so a malformed id is a plain 404, not a database error). */
+/** A malformed id must be a plain 404, not a database error. */
 export function isImageId(id: string) {
   return UUID.test(id);
 }
 
-/**
- * The signed-in User's own Image with this id, or null. An unknown id, a malformed one and
- * another User's (row-level security hides it) all give null, so routes answer 404 alike.
- */
 export async function findOwnImage(session: Pick<RequestSession, "supabase">, id: string): Promise<ImageRow | null> {
   if (!isImageId(id)) return null;
   const { data, error } = await session.supabase.from(IMAGES_TABLE).select().eq("id", id).maybeSingle<ImageRow>();

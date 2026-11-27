@@ -6,17 +6,6 @@ import { config } from "./config";
 
 type CookieToSet = { name: string; value: string; options: Parameters<NextResponse["cookies"]["set"]>[2] };
 
-/**
- * The visitor's Supabase session, read from the request cookies.
- *
- * `supabase` acts as the signed-in User (anon key + the User's token), so row-level security
- * applies to everything it does. Anything Supabase changes about the session (a refreshed
- * token, sign-in, sign-out) is collected and written onto the response by `respond`.
- *
- *   const session = await requestSession(request);
- *   if (!session.user) return session.respond(notSignedIn());
- *   return session.respond(NextResponse.json(...));
- */
 export async function requestSession(request: NextRequest) {
   // Never at build time: with Cache Components a GET route is prerendered at build unless it
   // waits for a request, and configuration only exists when the server runs.
@@ -57,7 +46,6 @@ export async function requestSession(request: NextRequest) {
 
 export type RequestSession = Awaited<ReturnType<typeof requestSession>>;
 
-/** The 401 every server route except sign-in gives visitors who aren't signed in. */
 export function notSignedIn() {
   return NextResponse.json({ error: "Not signed in." }, { status: 401 });
 }

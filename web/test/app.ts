@@ -1,11 +1,3 @@
-/**
- * Helpers for driving the app from outside, the way the browser does.
- *
- *   const user = await createUser();
- *   const browser = new Browser();
- *   await browser.signIn(user);
- *   const res = await browser.get("/api/me");
- */
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { inject } from "vitest";
@@ -14,7 +6,6 @@ export const appUrl = inject("appUrl");
 
 export type TestUser = { id: string; email: string; password: string };
 
-/** Creates a new confirmed User through the Supabase admin API, with a unique example.test email. */
 export async function createUser(): Promise<TestUser> {
   const env = inject("env");
   const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
@@ -27,7 +18,6 @@ export async function createUser(): Promise<TestUser> {
   return { id: data.user.id, email, password };
 }
 
-/** A Supabase client signed in as the User, the way someone holding their session would use it. */
 export async function supabaseAs(user: TestUser) {
   const env = inject("env");
   const client = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
@@ -38,7 +28,6 @@ export async function supabaseAs(user: TestUser) {
   return client;
 }
 
-/** One visitor with a cookie jar. Redirects are not followed, so tests can see them. */
 export class Browser {
   readonly cookies = new Map<string, string>();
 
@@ -72,7 +61,6 @@ export class Browser {
     return response;
   }
 
-  /** A second visitor holding a copy of this one's cookies (e.g. to replay a stolen session). */
   clone() {
     const copy = new Browser();
     for (const [name, value] of this.cookies) copy.cookies.set(name, value);

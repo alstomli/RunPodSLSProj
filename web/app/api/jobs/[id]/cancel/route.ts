@@ -4,13 +4,6 @@ import { findOwnImage, toImageView } from "@/lib/images";
 import { runpodClient } from "@/lib/runpod";
 import { notSignedIn, requestSession } from "@/lib/session";
 
-/**
- * POST → asks Runpod to cancel the Job and answers at once: 202 with the Job's ImageView, still
- * unfinished. The Job follower records "cancelled" when Runpod reports it (Users can't update rows).
- * 404 for an unknown id and for another User's Job (row-level security hides it).
- * 409 when the Job has already finished, or is stored but not yet sent to Runpod (a moment while
- * it is created). 502 when Runpod doesn't take the cancel.
- */
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/jobs/[id]/cancel">) {
   const session = await requestSession(request);
   if (!session.user) return session.respond(notSignedIn());

@@ -1,12 +1,3 @@
-/**
- * Runs once per `npm test`, in the main Vitest process:
- * 1. Makes sure the local Supabase stack is running (starts it if not; never stops or resets it,
- *    because other worktrees share it) and reads its URL and keys from `supabase status`.
- * 2. Picks a port for the fake Runpod. Test files that need it start it there with
- *    `FakeRunpod.start(inject("runpodPort"))`; the app server already points RUNPOD_API_BASE at it.
- * 3. Starts one Next.js dev server (dist dir `.next-test`) with that configuration and waits for it.
- * The values reach test files through `inject(...)` and, via test/setup-env.ts, through process.env.
- */
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";
@@ -47,7 +38,6 @@ export function freePort(): Promise<number> {
   });
 }
 
-/** Stops a server started with spawn (on Windows with its child processes). */
 export function stop(child: ChildProcess) {
   if (child.exitCode !== null || child.pid === undefined) return;
   if (process.platform === "win32") {
@@ -61,7 +51,6 @@ export function stop(child: ChildProcess) {
   }
 }
 
-/** Waits until the Next.js server at `url` answers /sign-in. */
 export async function waitForServer(url: string, child: ChildProcess, logFile: string) {
   const deadline = Date.now() + 120_000;
   while (Date.now() < deadline) {
@@ -77,7 +66,7 @@ export async function waitForServer(url: string, child: ChildProcess, logFile: s
   throw new Error(`The test app server did not start. See ${logFile}`);
 }
 
-/** The local Supabase stack's URL and keys. Starts the stack if it isn't running; never stops or resets it. */
+/** Starts the stack if it isn't running; never stops or resets it, because other worktrees share it. */
 export function ensureStack(): Record<string, string> {
   let stack = readStack();
   if (!stack) {
@@ -137,11 +126,8 @@ export default async function setup(project: TestProject) {
 
 declare module "vitest" {
   export interface ProvidedContext {
-    /** Base URL of the Next.js app under test, e.g. http://127.0.0.1:51234 */
     appUrl: string;
-    /** Port the app expects the fake Runpod on (RUNPOD_API_BASE = http://127.0.0.1:<port>). */
     runpodPort: number;
-    /** The environment variables the app server was started with. */
     env: Record<string, string>;
   }
 }

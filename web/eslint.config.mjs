@@ -5,16 +5,12 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  // Override default ignores of eslint-config-next.
   globalIgnores([
-    // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // The test app server's build output.
     ".next-test/**",
-    // The browser smoke test's server and results.
     ".next-smoke/**",
   ]),
 ]);

@@ -1,13 +1,3 @@
-/**
- * Runs once per `npm run test:container`:
- * 1. Reads the local Supabase stack (it must be running: `npx supabase start`).
- * 2. Builds the image from web/Dockerfile (tag runpodslsproj-web:test), unless TEST_IMAGE names
- *    an image to test instead (for example a published one).
- * 3. Starts one container from it with the stack's settings, Supabase reached through
- *    host.docker.internal and Runpod pointed at a port where nothing listens, and waits for it.
- * Test files get `inject("appUrl")`, `inject("env")` (the host's view of the stack, for createUser)
- * and `inject("image")`.
- */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -23,7 +13,6 @@ function docker(args: string[], options: { env?: NodeJS.ProcessEnv; log?: string
   return result;
 }
 
-/** The container reaches services on the host through host.docker.internal, not 127.0.0.1. */
 function fromContainer(url: string) {
   return url.replace(/\/\/(127\.0\.0\.1|localhost)([:/]|$)/, "//host.docker.internal$2");
 }
@@ -108,7 +97,6 @@ export default async function setup(project: TestProject) {
 
 declare module "vitest" {
   export interface ProvidedContext {
-    /** The container image under test. */
     image: string;
   }
 }

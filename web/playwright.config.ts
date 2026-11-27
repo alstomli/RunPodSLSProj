@@ -1,7 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// `npm run test:smoke`: the one browser smoke test (test/smoke/). Kept out of `npm test`, which is
-// Vitest; test/smoke/global-setup.ts starts its own app server, fake Runpod and User.
 export default defineConfig({
   testDir: "test/smoke",
   testMatch: "**/*.spec.ts",

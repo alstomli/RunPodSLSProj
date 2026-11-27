@@ -1,16 +1,3 @@
-/**
- * A fake Runpod Endpoint: a small local HTTP server, copied from the FakeRunpod in
- * test_generate.py. Point RUNPOD_API_BASE at `url`.
- *
- * - POST /run           answers the `run` reply (default: a new Job id, IN_QUEUE); a list plays in order, the last one repeats
- * - GET  /status/<job>  plays the `statuses` replies in order; the last one repeats
- * - POST /cancel/<job>  answers the `cancel` reply (default: CANCELLED)
- * - anything else       404
- *
- * A reply is `{ status, body, delayMs? }` (HTTP status and JSON body, sent after `delayMs`) or
- * "drop" (the connection is closed without an answer). Every request is recorded in `requests`
- * as soon as it arrives, before any delay.
- */
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 
@@ -25,7 +12,6 @@ export type RecordedRequest = {
   body: unknown;
 };
 
-/** A 200 /status reply with the given Runpod Job status, e.g. status("COMPLETED", { output }). */
 export function status(name: string, extra: Record<string, unknown> = {}): Reply {
   return { status: 200, body: { status: name, ...extra } };
 }
@@ -34,7 +20,6 @@ let jobCounter = 0;
 
 type Current = { run: Reply[]; cancel: Reply; statuses: Reply[] };
 
-/** The next reply of a list: plays in order, the last one repeats. */
 function next(replies: Reply[]): Reply {
   return replies.length > 1 ? replies.shift()! : replies[0];
 }
@@ -45,11 +30,9 @@ export class FakeRunpod {
 
   private constructor(
     private readonly server: http.Server,
-    /** Base URL to use as RUNPOD_API_BASE. */
     readonly url: string,
   ) {}
 
-  /** Starts the fake. In app tests pass `inject("runpodPort")`, the port the app server calls. */
   static async start(port = 0): Promise<FakeRunpod> {
     const holder: { fake?: FakeRunpod } = {};
     const server = http.createServer((req, res) => holder.fake!.handle(req, res));
@@ -66,7 +49,6 @@ export class FakeRunpod {
     return { run: [{ status: 200, body: { status: "IN_QUEUE" } }], cancel: { status: 200, body: { status: "CANCELLED" } }, statuses: [status("IN_QUEUE")] };
   }
 
-  /** Replaces the scripted replies (unset ones get the defaults) and forgets earlier requests. */
   script(script: Script) {
     const defaults = FakeRunpod.defaults();
     this.current = {
@@ -77,7 +59,6 @@ export class FakeRunpod {
     this.requests.length = 0;
   }
 
-  /** True when any /cancel request arrived since the last script(). */
   get cancelled() {
     return this.requests.some((r) => r.path.startsWith("/cancel/"));
   }
@@ -120,7 +101,6 @@ export class FakeRunpod {
     }
     if (reply.delayMs) await new Promise((resolve) => setTimeout(resolve, reply.delayMs));
     let replyBody = reply.body;
-    // Like Runpod, 2xx Job replies carry the Job id.
     if (jobId && reply.status < 300 && replyBody && typeof replyBody === "object" && !("id" in replyBody)) {
       replyBody = { id: jobId, ...replyBody };
     }

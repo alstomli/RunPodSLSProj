@@ -13,7 +13,6 @@ import {
 } from "@/lib/settings";
 import { callApi } from "./call-api";
 
-/** The form's values as typed. `validateSettings` turns them into numbers; an empty seed means random. */
 type Values = Record<SettingsField, string>;
 
 const INITIAL: Values = {
@@ -27,7 +26,6 @@ const INITIAL: Values = {
 
 const ADVANCED_FIELDS: SettingsField[] = ["width", "height", "steps", "guidance", "seed"];
 
-/** The prompt box, the Advanced section and Generate. Checks the settings before anything is sent. */
 export function GenerateForm({ disabled, onCreated }: { disabled: boolean; onCreated: (job: ImageView) => void }) {
   const [values, setValues] = useState<Values>(INITIAL);
   const [errors, setErrors] = useState<SettingsErrors>({});
@@ -137,7 +135,6 @@ export function GenerateForm({ disabled, onCreated }: { disabled: boolean; onCre
   );
 }
 
-/** A labelled input with its error sentence right below it. */
 function Field({ name, label, error, children }: { name: SettingsField; label: string; error?: string; children: ReactNode }) {
   return (
     <div style={{ display: "grid", gap: 4, alignContent: "start" }}>

@@ -6,7 +6,6 @@ import { makePng } from "../scripts/demo-runpod.mjs";
 
 const PNG_SIGNATURE = Buffer.from("89504e470d0a1a0a", "hex");
 
-/** Stand-in for the Worker's PNG: the PNG signature followed by some bytes. */
 const PNG =Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), Buffer.from("gallery image data ÿ\u0000\u0002")]);
 
 function completed(seed: number): ReturnType<typeof status> {
@@ -32,7 +31,6 @@ async function signedIn() {
   return { user, browser };
 }
 
-/** Starts a Job for the User; returns its ImageView. */
 async function startJob(browser: Browser, prompt: string, settings: Record<string, unknown> = {}) {
   runpod.script({});
   const response = await browser.post("/api/jobs", { prompt, ...settings });
@@ -40,7 +38,6 @@ async function startJob(browser: Browser, prompt: string, settings: Record<strin
   return response.json();
 }
 
-/** Starts a Job and lets the follower save its Image. */
 async function makeImage(user: TestUser, browser: Browser, prompt: string, settings: Record<string, unknown> = {}) {
   const job = await startJob(browser, prompt, settings);
   runpod.script({ statuses: [completed(job.seed)] });

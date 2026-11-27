@@ -1,10 +1,3 @@
-/**
- * The browser smoke test (spec #2, Seam 2): proves the page is wired to the API from start to
- * finish. The detailed cases live in the Vitest HTTP tests.
- *
- * Runs with `npm run test:smoke` against a real Next.js server, the local Supabase stack and the
- * demo fake Runpod, with the Job follower's timer on (see global-setup.ts).
- */
 import fs from "node:fs";
 import { expect, test } from "@playwright/test";
 import { makePng } from "../../scripts/demo-runpod.mjs";
@@ -12,7 +5,6 @@ import { makePng } from "../../scripts/demo-runpod.mjs";
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 const PROMPT = "A red fox, in snow!";
-/** The file name rule applied by hand to PROMPT: lower case, non-alphanumeric runs become "-". */
 const SLUG = "a-red-fox-in-snow";
 
 function smokeEnv(name: string): string {
@@ -24,7 +16,6 @@ function smokeEnv(name: string): string {
 test("sign in, generate an Image, watch it finish and download it", async ({ page }) => {
   const appUrl = smokeEnv("SMOKE_APP_URL");
 
-  // 1. Sign in. A visitor who isn't signed in is sent to the sign-in page first.
   await page.goto(appUrl);
   await expect(page).toHaveURL(/\/sign-in$/);
   await page.getByLabel("Email").fill(smokeEnv("SMOKE_USER_EMAIL"));
@@ -32,18 +23,13 @@ test("sign in, generate an Image, watch it finish and download it", async ({ pag
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("button", { name: "Generate" })).toBeVisible();
 
-  // 2. Type a prompt and press Generate.
   await page.getByLabel("Prompt").fill(PROMPT);
   await page.getByRole("button", { name: "Generate" }).click();
 
-  // 3. See the status change and the Image appear. The fake Runpod keeps a Job in the queue for
-  // 3 s and in progress until 8 s; the server's follower records each stage.
   const currentJob = page.getByRole("region", { name: "Current Job" });
   const status = currentJob.getByRole("status");
   await expect(status).toContainText("Sent");
 
-  // A reload keeps the running Job in the panel: its status, elapsed time and Cancel, with
-  // Generate disabled so the same prompt isn't sent twice.
   await page.reload();
   await expect(status).toContainText(/Sent|In the queue|In progress/);
   await expect(currentJob.getByTestId("elapsed")).toHaveText(/^\d+:\d\d$/);
@@ -61,12 +47,10 @@ test("sign in, generate an Image, watch it finish and download it", async ({ pag
   const seed = Number(seedText?.match(/Seed (\d+)/)?.[1]);
   expect(Number.isInteger(seed)).toBe(true);
 
-  // 4. Click Download.
   const downloading = page.waitForEvent("download");
   await currentJob.getByRole("link", { name: "Download" }).click();
   const download = await downloading;
 
-  // 5. The saved file is named after the prompt and seed, and it is the fake Runpod's PNG.
   expect(download.suggestedFilename()).toBe(`${SLUG}_seed${seed}.png`);
   const saved = test.info().outputPath(download.suggestedFilename());
   await download.saveAs(saved);

@@ -2,33 +2,21 @@ import "server-only";
 import { config as appConfig, type Config } from "./config";
 import type { Settings } from "./settings";
 
-/**
- * The Runpod Endpoint, as /run, /status and /cancel (the same calls the CLI client makes).
- * The API key stays here, on the server.
- */
-
-/** Every status Runpod reports for a Job. */
 export const RUNPOD_STATUSES = ["IN_QUEUE", "IN_PROGRESS", "COMPLETED", "FAILED", "CANCELLED", "TIMED_OUT"] as const;
 
 export type RunpodStatus = (typeof RUNPOD_STATUSES)[number];
 
-/** A Job as Runpod reports it from /status. */
 export type RunpodJob = {
   id: string;
   status: RunpodStatus;
-  /** The Worker's return value: { image_base64, prompt, width, ... } or { error }. */
   output?: unknown;
-  /** Runpod's or the Worker's reason when the Job failed. */
   error?: unknown;
 };
 
-/** What the Worker takes as the Job's input (handler.py): the settings, with the seed always chosen. */
 export type JobInput = Required<Settings>;
 
-/** Any reply from /run, /status or /cancel, before its status is checked. */
 type RunpodReply = { id?: unknown; status?: unknown; output?: unknown; error?: unknown };
 
-/** Runpod answered with an error or couldn't be reached. `status` is the HTTP status, if any. */
 export class RunpodError extends Error {
   constructor(
     message: string,
@@ -41,13 +29,9 @@ export class RunpodError extends Error {
 
 export type Runpod = ReturnType<typeof runpodClient>;
 
-/**
- * Waits before each retry of a 429 or 5xx reply. Short, because the follower polls again every
- * few seconds anyway (the CLI client simply polls again too) and the cancel route must answer at once.
- */
+/** Short: the follower polls again within seconds anyway, and the cancel route must answer at once. */
 export const RETRY_DELAYS_MS = [250, 500, 1000];
 
-/** A reply worth asking again for: rate limited, or a server error on Runpod's side. */
 function retryable(status: number) {
   return status === 429 || status >= 500;
 }
@@ -107,14 +91,12 @@ export function runpodClient(
   }
 
   return {
-    /** POST /run. Returns the Runpod Job id. */
     async submit(input: JobInput): Promise<string> {
       const job = await call("POST", "/run", { input }, false);
       if (typeof job.id !== "string" || !job.id) throw new RunpodError("Runpod accepted the Job but sent no Job id");
       return job.id;
     },
 
-    /** GET /status/<id>. A status this code doesn't know is a RunpodError (the Job is asked about again later). */
     async status(jobId: string): Promise<RunpodJob> {
       const job = await call("GET", `/status/${encodeURIComponent(jobId)}`);
       if (!(RUNPOD_STATUSES as readonly unknown[]).includes(job.status)) {
@@ -123,7 +105,6 @@ export function runpodClient(
       return { ...job, id: typeof job.id === "string" ? job.id : jobId, status: job.status as RunpodStatus };
     },
 
-    /** POST /cancel/<id>. */
     async cancel(jobId: string): Promise<void> {
       await call("POST", `/cancel/${encodeURIComponent(jobId)}`);
     },

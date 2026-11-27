@@ -1,10 +1,3 @@
-/**
- * The page's one way of calling the server routes. Every route answers errors as
- * `{ error: "<sentence for the User>" }` (plus `fields` for invalid settings), so this returns
- * either the reply's body or a sentence to show: the route's own, else `error`, or a
- * "can't reach the server" sentence when the request didn't get through at all.
- */
-
 export type ErrorBody = { error?: string; fields?: Record<string, string> };
 
 export type ApiResult<T> = { ok: true; body: T } | { ok: false; error: string; body: ErrorBody | null };
@@ -20,9 +13,7 @@ export async function callApi<T>(
     offlineError = OFFLINE,
   }: {
     method?: "GET" | "POST";
-    /** Sent as the JSON body. */
     json?: unknown;
-    /** Shown when the route fails without saying why. */
     error: string;
     offlineError?: string;
   },

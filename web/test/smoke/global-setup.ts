@@ -1,13 +1,6 @@
 /**
- * Global setup for the browser smoke test (`npm run test:smoke`), in Playwright's main process:
- * 1. Makes sure the local Supabase stack is running (never stops or resets it; it is shared).
- * 2. Starts the demo fake Runpod (scripts/demo-runpod.mjs), which plays each Job through to a PNG
- *    on its own clock. Jobs it didn't create get 400 instead of Runpod's 404, so this server's
- *    follower leaves other test runs' unfinished Jobs in the shared database alone.
- * 3. Starts one Next.js dev server (dist dir `.next-smoke`) pointed at both, with the Job
- *    follower's timer ON, so the Job finishes the way it would for real.
- * 4. Creates a fresh User.
- * The test reads the app URL and the User from SMOKE_* environment variables.
+ * The demo Runpod answers 400 (not Runpod's 404) for Jobs it didn't create, so this server's follower,
+ * whose timer is on, leaves other test runs' unfinished Jobs in the shared database alone.
  */
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";

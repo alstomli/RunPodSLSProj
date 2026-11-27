@@ -5,17 +5,14 @@ import { imageFileUrl, isFinished, STATUS_LABELS, type ImageView } from "@/lib/i
 import { callApi } from "./call-api";
 import { DownloadLink } from "./download-link";
 
-/** How often the Gallery reloads while it shows an unfinished Job. */
 const POLL_MS = 3000;
 
-/** Fired on `window` when the page started a Job or saw one change, so the Gallery reloads. */
 const GALLERY_CHANGED = "gallery-changed";
 
 export function notifyGalleryChanged() {
   window.dispatchEvent(new Event(GALLERY_CHANGED));
 }
 
-/** The User's Images newest first, unfinished Jobs included, each with its settings. */
 export function Gallery() {
   const [images, setImages] = useState<ImageView[] | null>(null);
   const [error, setError] = useState<string | null>(null);

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { appUrl, Browser, createUser } from "./app";
 
-/** Where a redirect response sends the browser (path only). */
 const redirectPath = (response: Response) => new URL(response.headers.get("location")!, appUrl).pathname;
 
 describe("a visitor who isn't signed in", () => {

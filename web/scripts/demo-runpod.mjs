@@ -1,11 +1,5 @@
-// A stand-in Runpod Endpoint for trying the app by hand (`npm run dev:local -- --fake-runpod`).
-// Unlike test/fake-runpod.ts, which plays back scripted replies, this one plays every Job
-// through on its own clock: IN_QUEUE for 3 s, IN_PROGRESS until 8 s, then COMPLETED with a
-// generated PNG of the requested size. A prompt containing "fail" ends FAILED, "error" ends with
-// a Worker error, and "cold" waits 30 s in the queue first (a Cold start). /cancel works.
-// Jobs it didn't create answer 404, like an expired result on Runpod (`unknownJobStatus` changes
-// that; the browser smoke test uses 400 so its follower leaves other runs' Jobs in the shared
-// database alone).
+// A demo Runpod for `npm run dev:local -- --fake-runpod`. Prompts containing "fail", "error" or
+// "cold" end FAILED, end with a Worker error, or wait 30 s in the queue first (a Cold start).
 import http from "node:http";
 import zlib from "node:zlib";
 
@@ -34,7 +28,6 @@ function chunk(type, data) {
   return Buffer.concat([length, body, crc]);
 }
 
-/** A width×height RGB PNG: a gradient tinted by the seed, so different seeds look different. */
 export function makePng(width, height, seed) {
   const tint = [seed & 0xff, (seed >>> 8) & 0xff, (seed >>> 16) & 0xff];
   const rows = Buffer.alloc((width * 3 + 1) * height);
@@ -60,11 +53,6 @@ export function makePng(width, height, seed) {
   ]);
 }
 
-/**
- * Starts the demo Endpoint on `port` (0 = any free port). Resolves to `{ url, close }`, where
- * `url` is the base URL to use as RUNPOD_API_BASE. `unknownJobStatus` is the HTTP status for
- * Jobs this Endpoint didn't create.
- */
 export function startDemoRunpod(port = 0, { unknownJobStatus = 404 } = {}) {
   const jobs = new Map();
   let counter = 0;

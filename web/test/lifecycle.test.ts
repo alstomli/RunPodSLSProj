@@ -4,7 +4,6 @@ import { processPendingJobs } from "@/lib/follower";
 import { Browser, createUser } from "./app";
 import { FakeRunpod, status, type Reply } from "./fake-runpod";
 
-/** Stand-in for the Worker's PNG: the PNG signature followed by some bytes. */
 const PNG = Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), Buffer.from("lifecycle image ÿ\u0000\u0002")]);
 
 function completed(seed: number): Reply {
@@ -23,7 +22,6 @@ afterAll(async () => {
   await runpod.close();
 });
 
-/** A signed-in User with one Job just created (status pending). */
 async function userWithJob(prompt = "a red fox in snow") {
   const user = await createUser();
   const browser = new Browser();
@@ -32,7 +30,6 @@ async function userWithJob(prompt = "a red fox in snow") {
   const response = await browser.post("/api/jobs", { prompt });
   expect(response.status).toBe(201);
   const job = await response.json();
-  /** Runs the follower once over this User's Jobs (as the timer would). */
   const step = () => processPendingJobs({ userId: user.id });
   const view = async () => (await browser.get(`/api/jobs/${job.id}`)).json();
   return { user, browser, job, step, view };
@@ -164,7 +161,6 @@ describe("restarts and repeated runs", () => {
     const job = await view();
     expect(job.status).toBe("completed");
     expect(job.finishedAt).toBe(first.finishedAt);
-    // What the User can see with their own Supabase session.
     const env = inject("env");
     const own = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, { auth: { persistSession: false } });
     await own.auth.signInWithPassword({ email: user.email, password: user.password });

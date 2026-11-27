@@ -6,15 +6,10 @@ import { notSignedIn, requestSession } from "@/lib/session";
 import { MAX_SEED, validateSettings } from "@/lib/settings";
 
 /**
- * POST { prompt, ...settings } → 201 ImageView (status "pending").
- * 400 { error, fields } when the settings are invalid (nothing is sent to Runpod).
- * 502 { error, id } when Runpod refuses the Job; the Image is stored as "failed".
- *
- * Order: store the row as pending, submit to Runpod, then record the Runpod Job id on the row.
- * A crash after submitting can't lose a billed Job that way: its row is there, and the Job follower
- * marks a row that never got its Runpod id as failed. Every write is made as the User; row-level
- * security lets them record the Runpod Job id (or Runpod's refusal) on their own new row once,
- * and nothing else (supabase/migrations/*_store_jobs_before_runpod.sql).
+ * Store the row as pending, submit to Runpod, then record the Runpod Job id: a crash after
+ * submitting can't lose a billed Job, because the follower fails rows that never got their id.
+ * Row-level security lets the User record the id (or Runpod's refusal) on their own new row once
+ * (supabase/migrations/*_store_jobs_before_runpod.sql).
  */
 export async function POST(request: NextRequest) {
   const session = await requestSession(request);
@@ -40,7 +35,6 @@ export async function POST(request: NextRequest) {
     return couldNotSave();
   }
 
-  /** Records how the submit went, only while the row is still pending without a Runpod id. */
   const record = (changes: Partial<ImageRow>) =>
     session.supabase
       .from(IMAGES_TABLE)
