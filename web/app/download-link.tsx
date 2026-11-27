@@ -1,5 +1,5 @@
 import { downloadFileName } from "@/lib/download-name";
-import type { ImageView } from "@/lib/image-view";
+import { imageFileUrl, type ImageView } from "@/lib/image-view";
 
 /**
  * Download for a completed Image: the original PNG from the file route's download option,
@@ -7,7 +7,7 @@ import type { ImageView } from "@/lib/image-view";
  */
 export function DownloadLink({ image }: { image: ImageView }) {
   return (
-    <a className="button" href={`/api/images/${image.id}/file?download=1`} download={downloadFileName(image.prompt, image.seed)}>
+    <a className="button" href={imageFileUrl(image.id, { download: true })} download={downloadFileName(image.prompt, image.seed)}>
       Download
     </a>
   );

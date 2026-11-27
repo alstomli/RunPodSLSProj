@@ -10,8 +10,11 @@ import { MAX_SEED, validateSettings } from "@/lib/settings";
  * 400 { error, fields } when the settings are invalid (nothing is sent to Runpod).
  * 502 { error, id } when Runpod refuses the Job; the Image is stored as "failed".
  *
- * The Job is submitted first and the row stored after, with its Runpod Job id, because Users
- * can only insert rows, not update them (only the Job follower updates rows).
+ * Order: store the row as pending, submit to Runpod, then record the Runpod Job id on the row.
+ * A crash after submitting can't lose a billed Job that way: its row is there, and the Job follower
+ * marks a row that never got its Runpod id as failed. Every write is made as the User; row-level
+ * security lets them record the Runpod Job id (or Runpod's refusal) on their own new row once,
+ * and nothing else (supabase/migrations/*_store_jobs_before_runpod.sql).
  */
 export async function POST(request: NextRequest) {
   const session = await requestSession(request);
@@ -25,43 +28,50 @@ export async function POST(request: NextRequest) {
     );
   }
   const settings = { ...validation.settings, seed: validation.settings.seed ?? randomInt(0, MAX_SEED + 1) };
-
   const id = randomUUID();
+  const couldNotSave = () =>
+    session.respond(NextResponse.json({ error: "Couldn't save the Job. Try again." }, { status: 500 }));
+
+  const stored = await session.supabase
+    .from(IMAGES_TABLE)
+    .insert({ id, user_id: session.user.id, status: "pending", ...settings });
+  if (stored.error) {
+    console.error(`Couldn't store Image ${id}: ${stored.error.message}`);
+    return couldNotSave();
+  }
+
+  /** Records how the submit went, only while the row is still pending without a Runpod id. */
+  const record = (changes: Partial<ImageRow>) =>
+    session.supabase
+      .from(IMAGES_TABLE)
+      .update(changes)
+      .eq("id", id)
+      .eq("status", "pending")
+      .is("runpod_job_id", null)
+      .select()
+      .maybeSingle<ImageRow>();
+
   const runpod = runpodClient();
-  let runpodJobId: string | null = null;
-  let refusal: string | null = null;
+  let runpodJobId: string;
   try {
     runpodJobId = await runpod.submit(settings);
   } catch (error) {
-    refusal = (error as Error).message;
-  }
-
-  const { data, error } = await session.supabase
-    .from(IMAGES_TABLE)
-    .insert({
-      id,
-      user_id: session.user.id,
-      runpod_job_id: runpodJobId,
-      status: refusal ? "failed" : "pending",
-      ...settings,
-      error: refusal,
-      finished_at: refusal ? new Date().toISOString() : null,
-    })
-    .select()
-    .single<ImageRow>();
-
-  if (error || !data) {
-    console.error(`Couldn't store Image ${id}: ${error?.message}`);
-    // Don't leave a Job running (and costing money) that nothing will ever save.
-    if (runpodJobId) await runpod.cancel(runpodJobId).catch(() => undefined);
-    return session.respond(NextResponse.json({ error: "Couldn't save the Job. Try again." }, { status: 500 }));
-  }
-
-  if (refusal) {
+    const refusal = (error as Error).message;
     console.error(`Runpod refused Image ${id}: ${refusal}`);
+    const failed = await record({ status: "failed", error: refusal, finished_at: new Date().toISOString() });
+    if (failed.error) console.error(`Couldn't mark Image ${id} failed: ${failed.error.message}`);
     return session.respond(
       NextResponse.json({ error: "Runpod didn't accept the Job. Try again later.", id }, { status: 502 }),
     );
+  }
+
+  const { data, error } = await record({ runpod_job_id: runpodJobId });
+  if (error || !data) {
+    // The row is gone or no longer waiting for its id (the follower gave up on it): nothing would
+    // ever save this Job, so don't leave it running and costing money.
+    console.error(`Couldn't record Runpod Job ${runpodJobId} on Image ${id}: ${error?.message ?? "row not pending"}`);
+    await runpod.cancel(runpodJobId).catch(() => undefined);
+    return couldNotSave();
   }
   return session.respond(NextResponse.json(toImageView(data), { status: 201 }));
 }

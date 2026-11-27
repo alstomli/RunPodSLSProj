@@ -11,6 +11,7 @@ import {
   type SettingsErrors,
   type SettingsField,
 } from "@/lib/settings";
+import { callApi } from "./call-api";
 
 /** The form's values as typed. `validateSettings` turns them into numbers; an empty seed means random. */
 type Values = Record<SettingsField, string>;
@@ -52,20 +53,15 @@ export function GenerateForm({ disabled, onCreated }: { disabled: boolean; onCre
     }
     setErrors({});
     setSending(true);
-    try {
-      const response = await fetch("/api/jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(validation.settings),
-      });
-      const body = await response.json().catch(() => null);
-      if (response.ok) onCreated(body as ImageView);
-      else {
-        showErrors(body?.fields ?? {});
-        setError(body?.error ?? "Couldn't start the Job. Try again.");
-      }
-    } catch {
-      setError("Can't reach the server. Check your connection and try again.");
+    const result = await callApi<ImageView>("/api/jobs", {
+      method: "POST",
+      json: validation.settings,
+      error: "Couldn't start the Job. Try again.",
+    });
+    if (result.ok) onCreated(result.body);
+    else {
+      showErrors(result.body?.fields ?? {});
+      setError(result.error);
     }
     setSending(false);
   }

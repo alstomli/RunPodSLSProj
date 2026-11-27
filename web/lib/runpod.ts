@@ -1,30 +1,32 @@
 import "server-only";
-import { config, type Config } from "./config";
+import { config as appConfig, type Config } from "./config";
+import type { Settings } from "./settings";
 
 /**
  * The Runpod Endpoint, as /run, /status and /cancel (the same calls the CLI client makes).
  * The API key stays here, on the server.
  */
 
-/** A Job as Runpod reports it from /status. `status` is IN_QUEUE, IN_PROGRESS, COMPLETED, FAILED, CANCELLED or TIMED_OUT. */
+/** Every status Runpod reports for a Job. */
+export const RUNPOD_STATUSES = ["IN_QUEUE", "IN_PROGRESS", "COMPLETED", "FAILED", "CANCELLED", "TIMED_OUT"] as const;
+
+export type RunpodStatus = (typeof RUNPOD_STATUSES)[number];
+
+/** A Job as Runpod reports it from /status. */
 export type RunpodJob = {
   id: string;
-  status: string;
+  status: RunpodStatus;
   /** The Worker's return value: { image_base64, prompt, width, ... } or { error }. */
   output?: unknown;
   /** Runpod's or the Worker's reason when the Job failed. */
   error?: unknown;
 };
 
-/** What the Worker takes as the Job's input (handler.py). */
-export type JobInput = {
-  prompt: string;
-  width: number;
-  height: number;
-  steps: number;
-  guidance: number;
-  seed: number;
-};
+/** What the Worker takes as the Job's input (handler.py): the settings, with the seed always chosen. */
+export type JobInput = Required<Settings>;
+
+/** Any reply from /run, /status or /cancel, before its status is checked. */
+type RunpodReply = { id?: unknown; status?: unknown; output?: unknown; error?: unknown };
 
 /** Runpod answered with an error or couldn't be reached. `status` is the HTTP status, if any. */
 export class RunpodError extends Error {
@@ -51,16 +53,16 @@ function retryable(status: number) {
 }
 
 export function runpodClient(
-  settings: Pick<Config, "runpodApiBase" | "runpodApiKey"> = config(),
+  config: Pick<Config, "runpodApiBase" | "runpodApiKey"> = appConfig(),
   retryDelaysMs: readonly number[] = RETRY_DELAYS_MS,
 ) {
-  const { runpodApiBase: base, runpodApiKey: key } = settings;
+  const { runpodApiBase: base, runpodApiKey: key } = config;
 
   /**
    * One Runpod call, retrying 429 and 5xx replies. `safeToRepeat` is false for /run: a 5xx there
    * may have queued the Job already, so only a 429 (refused outright) is retried.
    */
-  async function call(method: "GET" | "POST", path: string, body?: unknown, safeToRepeat = true): Promise<RunpodJob> {
+  async function call(method: "GET" | "POST", path: string, body?: unknown, safeToRepeat = true): Promise<RunpodReply> {
     for (let attempt = 0; ; attempt++) {
       try {
         return await callOnce(method, path, body);
@@ -77,7 +79,7 @@ export function runpodClient(
     }
   }
 
-  async function callOnce(method: "GET" | "POST", path: string, body?: unknown): Promise<RunpodJob> {
+  async function callOnce(method: "GET" | "POST", path: string, body?: unknown): Promise<RunpodReply> {
     let response: Response;
     try {
       response = await fetch(`${base}${path}`, {
@@ -98,7 +100,7 @@ export function runpodClient(
       throw new RunpodError(`Runpod answered ${response.status}${text ? `: ${text.slice(0, 300)}` : ""}`, response.status);
     }
     try {
-      return JSON.parse(text) as RunpodJob;
+      return JSON.parse(text) as RunpodReply;
     } catch {
       throw new RunpodError(`Runpod sent a reply that isn't JSON: ${text.slice(0, 300)}`, response.status);
     }
@@ -112,9 +114,13 @@ export function runpodClient(
       return job.id;
     },
 
-    /** GET /status/<id>. */
-    status(jobId: string): Promise<RunpodJob> {
-      return call("GET", `/status/${encodeURIComponent(jobId)}`);
+    /** GET /status/<id>. A status this code doesn't know is a RunpodError (the Job is asked about again later). */
+    async status(jobId: string): Promise<RunpodJob> {
+      const job = await call("GET", `/status/${encodeURIComponent(jobId)}`);
+      if (!(RUNPOD_STATUSES as readonly unknown[]).includes(job.status)) {
+        throw new RunpodError(`Runpod sent an unknown Job status: ${JSON.stringify(job.status)}`);
+      }
+      return { ...job, id: typeof job.id === "string" ? job.id : jobId, status: job.status as RunpodStatus };
     },
 
     /** POST /cancel/<id>. */

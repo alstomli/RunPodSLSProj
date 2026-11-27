@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { processPendingJobs } from "@/lib/follower";
-import { Browser, createUser } from "./app";
+import { Browser, createUser, supabaseAs } from "./app";
 import { FakeRunpod, status } from "./fake-runpod";
 
 /** Stand-in for the Worker's PNG: the PNG signature followed by some bytes. */
@@ -51,6 +51,21 @@ describe("creating a Job", () => {
     expect(runs[0].body).toEqual({
       input: { prompt: "a red fox in snow", width: 1024, height: 1024, steps: 28, guidance: 3.5, seed: job.seed },
     });
+  });
+
+  it("is stored as pending before Runpod is asked, so a crash in between can't lose a billed Job", async () => {
+    const { browser } = await signedIn();
+    runpod.script({ run: { status: 200, body: { status: "IN_QUEUE" }, delayMs: 1500 } });
+
+    const creating = browser.post("/api/jobs", { prompt: "a slow start" });
+    await expect.poll(() => runpod.requests.filter((r) => r.path === "/run").length, { timeout: 10_000 }).toBe(1);
+
+    // Runpod hasn't answered yet, and the Job is already there.
+    const { images } = await (await browser.get("/api/images")).json();
+    expect(images).toMatchObject([{ prompt: "a slow start", status: "pending" }]);
+    const response = await creating;
+    expect(response.status).toBe(201);
+    expect((await response.json()).id).toBe(images[0].id);
   });
 
   it("with a blank prompt is refused and nothing reaches Runpod", async () => {
@@ -132,6 +147,43 @@ describe("following a Job", () => {
   });
 });
 
+describe("the current Job, after a reload", () => {
+  it("is the User's newest unfinished Job", async () => {
+    const { user, browser } = await signedIn();
+    runpod.script({});
+    const older = await (await browser.post("/api/jobs", { prompt: "an older Job" })).json();
+    const newer = await (await browser.post("/api/jobs", { prompt: "the newest Job" })).json();
+    runpod.script({ statuses: [status("IN_QUEUE")] });
+    await processPendingJobs({ userId: user.id });
+
+    const response = await browser.get("/api/jobs/current");
+
+    expect(response.status).toBe(200);
+    const { job } = await response.json();
+    expect(job).toMatchObject({ id: newer.id, status: "in_queue", prompt: "the newest Job", seed: newer.seed });
+    expect(job.id).not.toBe(older.id);
+  });
+
+  it("is none when every Job has finished", async () => {
+    const { user, browser } = await signedIn();
+    runpod.script({});
+    const created = await (await browser.post("/api/jobs", { prompt: "a finished Job" })).json();
+    runpod.script({ statuses: [completed(created.seed)] });
+    await processPendingJobs({ userId: user.id });
+
+    expect(await (await browser.get("/api/jobs/current")).json()).toEqual({ job: null });
+  });
+
+  it("is never another User's Job", async () => {
+    const owner = await signedIn();
+    runpod.script({});
+    await owner.browser.post("/api/jobs", { prompt: "my running Job" });
+    const { browser: other } = await signedIn();
+
+    expect(await (await other.get("/api/jobs/current")).json()).toEqual({ job: null });
+  });
+});
+
 describe("another User", () => {
   it("gets 404 for the Job's status and the Image file", async () => {
     const owner = await signedIn();
@@ -152,5 +204,44 @@ describe("another User", () => {
 
     expect((await browser.get("/api/jobs/not-an-id")).status).toBe(404);
     expect((await browser.get("/api/images/not-an-id/file")).status).toBe(404);
+  });
+});
+
+describe("a User's own Supabase session", () => {
+  const row = { status: "pending", prompt: "by hand", width: 1024, height: 1024, steps: 28, guidance: 3.5, seed: 1 };
+
+  it("can't change a Job once it is sent, nor start a row as anything but a new Job", async () => {
+    const { user, browser } = await signedIn();
+    runpod.script({});
+    const created = await (await browser.post("/api/jobs", { prompt: "mine" })).json();
+    const own = await supabaseAs(user);
+
+    // The Runpod Job id is recorded once; the status and the file are the follower's.
+    for (const changes of [{ runpod_job_id: "job-of-someone-else" }, { status: "completed" }, { status: "failed", error: "x" }]) {
+      const update = await own.from("images").update(changes).eq("id", created.id).select();
+      expect(update.data ?? [], JSON.stringify(changes)).toEqual([]);
+    }
+    expect((await own.from("images").update({ file_path: "x.png" }).eq("id", created.id).select()).error).toBeTruthy();
+    for (const extra of [{ runpod_job_id: "job-made-up" }, { status: "completed", file_path: "x.png" }, { status: "failed", error: "x" }]) {
+      const insert = await own.from("images").insert({ ...row, user_id: user.id, ...extra });
+      expect(insert.error, JSON.stringify(extra)).toBeTruthy();
+    }
+
+    expect(await (await browser.get(`/api/jobs/${created.id}`)).json()).toMatchObject({ status: "pending", error: null });
+  });
+
+  it("can't record anything on another User's new Job", async () => {
+    const { user } = await signedIn();
+    const other = await signedIn();
+    const own = await supabaseAs(user);
+    const theirs = await supabaseAs(other.user);
+    const inserted = await theirs.from("images").insert({ ...row, user_id: other.user.id }).select().single();
+    expect(inserted.error).toBeNull();
+
+    const update = await own.from("images").update({ runpod_job_id: "job-hijack" }).eq("id", inserted.data.id).select();
+
+    expect(update.data ?? []).toEqual([]);
+    const job = await (await other.browser.get(`/api/jobs/${inserted.data.id}`)).json();
+    expect(job.status).toBe("pending");
   });
 });

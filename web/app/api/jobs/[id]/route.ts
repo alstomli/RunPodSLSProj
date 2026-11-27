@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { IMAGES_TABLE, isImageId, toImageView, type ImageRow } from "@/lib/images";
+import { findOwnImage, toImageView } from "@/lib/images";
 import { notSignedIn, requestSession } from "@/lib/session";
 
 /**
@@ -9,11 +9,8 @@ import { notSignedIn, requestSession } from "@/lib/session";
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/jobs/[id]">) {
   const session = await requestSession(request);
   if (!session.user) return session.respond(notSignedIn());
-  const { id } = await ctx.params;
 
-  const row = isImageId(id)
-    ? (await session.supabase.from(IMAGES_TABLE).select().eq("id", id).maybeSingle<ImageRow>()).data
-    : null;
+  const row = await findOwnImage(session, (await ctx.params).id);
   if (!row) return session.respond(NextResponse.json({ error: "There's no such Job." }, { status: 404 }));
   return session.respond(NextResponse.json(toImageView(row)));
 }

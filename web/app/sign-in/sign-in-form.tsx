@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { callApi } from "../call-api";
 
 export function SignInForm() {
   const [error, setError] = useState<string | null>(null);
@@ -13,22 +14,17 @@ export function SignInForm() {
     const form = new FormData(event.currentTarget);
     setBusy(true);
     setError(null);
-    try {
-      const response = await fetch("/api/auth/sign-in", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: form.get("email"), password: form.get("password") }),
-      });
-      if (response.ok) {
-        router.replace("/");
-        router.refresh();
-        return;
-      }
-      const body = await response.json().catch(() => null);
-      setError(body?.error ?? "Sign-in failed. Try again.");
-    } catch {
-      setError("Can't reach the server. Check your connection and try again.");
+    const result = await callApi("/api/auth/sign-in", {
+      method: "POST",
+      json: { email: form.get("email"), password: form.get("password") },
+      error: "Sign-in failed. Try again.",
+    });
+    if (result.ok) {
+      router.replace("/");
+      router.refresh();
+      return;
     }
+    setError(result.error);
     setBusy(false);
   }
 
