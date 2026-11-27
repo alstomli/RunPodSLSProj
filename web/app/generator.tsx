@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { isFinished, type ImageView } from "@/lib/image-view";
 import { CurrentJob } from "./current-job";
+import { notifyGalleryChanged } from "./gallery";
 import { GenerateForm } from "./generate-form";
 
 /** How often the page asks for the current Job's status while it is unfinished. */
@@ -30,6 +31,12 @@ export function Generator() {
       clearTimeout(timer);
     };
   }, [job]);
+
+  // A new Job, or a status change, shows in the Gallery too.
+  const jobKey = job && `${job.id}:${job.status}`;
+  useEffect(() => {
+    if (jobKey) notifyGalleryChanged();
+  }, [jobKey]);
 
   return (
     <div style={{ display: "grid", gap: 24 }}>

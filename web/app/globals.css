@@ -64,6 +64,54 @@ button:disabled {
   color: var(--error);
 }
 
+.muted {
+  color: var(--muted);
+}
+
+/* A link that looks like a button (Download). */
+a.button {
+  display: inline-block;
+  padding: 8px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+}
+
+.gallery {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.gallery-item {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  min-width: 0;
+}
+
+.gallery-item img,
+.gallery-placeholder {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.gallery-placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.gallery-prompt {
+  overflow-wrap: anywhere;
+}
+
 /* Advanced settings (generate-form.tsx) */
 button.secondary {
   background: var(--background);

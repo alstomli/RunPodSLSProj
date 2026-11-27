@@ -1,6 +1,7 @@
 "use client";
 
 import { STATUS_LABELS, type ImageView } from "@/lib/image-view";
+import { DownloadLink } from "./download-link";
 
 /** The Job the User just started: its status while it runs, then the Image and its seed. */
 export function CurrentJob({ job }: { job: ImageView }) {
@@ -24,6 +25,9 @@ export function CurrentJob({ job }: { job: ImageView }) {
           <figcaption>
             Seed <span data-testid="seed">{job.seed}</span>
           </figcaption>
+          <div>
+            <DownloadLink image={job} />
+          </div>
         </figure>
       )}
     </section>
