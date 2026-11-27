@@ -1,0 +1,82 @@
+# The web app's CI.
+# Pull requests: typecheck, lint and Vitest against a local Supabase stack (fake Runpod).
+# Pushes to master: build web/Dockerfile and publish it to ghcr.io/alstomli/runpodslsproj-web,
+# tagged `latest` and with the commit SHA. Master takes changes only through pull requests that
+# passed `check` and were up to date with master (repository ruleset), so publish doesn't re-test.
+name: Web
+
+on:
+  pull_request:
+    paths:
+      - "web/**"
+      - ".github/workflows/web.yml"
+  push:
+    branches: [master]
+    paths:
+      - "web/**"
+      - ".github/workflows/web.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: web-check-${{ github.ref }}
+      cancel-in-progress: true
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+
+      - name: Start the local Supabase stack
+        run: npx supabase start -x studio,mailpit,edge-runtime,logflare,vector,realtime,postgres-meta,supavisor
+
+      - run: npm run check
+
+  publish:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    concurrency:
+      group: web-image
+      cancel-in-progress: false
+    env:
+      IMAGE: ghcr.io/alstomli/runpodslsproj-web
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: web
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
