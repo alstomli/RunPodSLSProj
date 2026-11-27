@@ -24,7 +24,7 @@ function supabase(...args: string[]) {
   return spawnSync(process.execPath, [supabaseCli, ...args], { cwd: web, encoding: "utf8" });
 }
 
-function readStack(): Record<string, string> | null {
+export function readStack(): Record<string, string> | null {
   const result = supabase("status", "-o", "env");
   if (result.status !== 0) return null;
   const values: Record<string, string> = {};
@@ -35,7 +35,7 @@ function readStack(): Record<string, string> | null {
   return values.API_URL ? values : null;
 }
 
-function freePort(): Promise<number> {
+export function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
     server.unref();

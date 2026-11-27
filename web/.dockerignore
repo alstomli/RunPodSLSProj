@@ -1,0 +1,13 @@
+# Only what `next build` needs goes into the image build. Never any .env file.
+.env*
+node_modules
+.next
+.next-test
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+test
+supabase
+scripts
+Dockerfile
+.dockerignore

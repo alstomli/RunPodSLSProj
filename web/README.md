@@ -20,6 +20,8 @@ Nothing is baked in at build time, and the browser never talks to Supabase or Ru
 | `RUNPOD_ENDPOINT_ID` | The Endpoint to send Jobs to |
 | `RUNPOD_API_BASE` | Optional. Overrides `https://api.runpod.ai/v2/<endpoint id>` |
 
+The container listens on port 3000 (`PORT` and `HOSTNAME` are set in the image; leave them alone).
+
 ## Working on it
 
 ```sh
@@ -28,6 +30,7 @@ npx supabase start      # local Supabase in Docker, built from supabase/migratio
 npm run dev:local       # app on http://127.0.0.1:3000 against the local stack; Runpod is never called
 npm test                # Vitest: real HTTP routes, local Supabase, fake Runpod
 npm run lint && npm run typecheck
+npm run test:container  # builds the Docker image and tests a container against the local stack
 ```
 
 There is no sign-up page. Create Users in Supabase (locally: Studio at http://127.0.0.1:54323,
@@ -40,4 +43,23 @@ or the admin API).
 - `lib/session.ts` the visitor's Supabase session; the server acts as that User
 - `lib/config.ts` configuration from the environment
 - `supabase/` local stack config and migrations (the same migrations go to the hosted project)
-- `test/` Vitest tests, the fake Runpod and test helpers
+- `test/` Vitest tests, the fake Runpod and test helpers; `test/container/` tests the Docker image
+- `Dockerfile`, `.dockerignore` the container image
+
+## Container image
+
+`Dockerfile` (in this folder) builds the production server: a multi-stage build of
+`next build`'s standalone output, run as `node server.js` on port 3000. The image holds no
+secrets and no project-specific values, so one image works for any deployment.
+
+```sh
+docker build -t runpodslsproj-web .
+docker run --rm -p 3000:3000 \
+  -e SUPABASE_URL -e SUPABASE_ANON_KEY -e SUPABASE_SERVICE_ROLE_KEY \
+  -e RUNPOD_API_KEY -e RUNPOD_ENDPOINT_ID \
+  runpodslsproj-web
+```
+
+(`-e NAME` passes the value from your shell.) Against the local Supabase stack, use
+`http://host.docker.internal:54321` as `SUPABASE_URL`, since `127.0.0.1` inside the container
+is the container itself. Starting the server also starts the Job follower; there is nothing else to run.
