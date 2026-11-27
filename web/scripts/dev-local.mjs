@@ -38,7 +38,7 @@ const env = {
   SUPABASE_SERVICE_ROLE_KEY: stack.SERVICE_ROLE_KEY,
   RUNPOD_API_KEY: "local-dev",
   RUNPOD_ENDPOINT_ID: "local-dev",
-  RUNPOD_API_BASE: fakeRunpod ? await startDemoRunpod() : "http://127.0.0.1:9", // nothing listens on 9
+  RUNPOD_API_BASE: fakeRunpod ? (await startDemoRunpod()).url : "http://127.0.0.1:9", // nothing listens on 9
 };
 
 const command = prod

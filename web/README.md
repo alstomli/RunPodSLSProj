@@ -31,10 +31,22 @@ npm run dev:local       # app on http://127.0.0.1:3000 against the local stack; 
 npm test                # Vitest: real HTTP routes, local Supabase, fake Runpod
 npm run lint && npm run typecheck
 npm run test:container  # builds the Docker image and tests a container against the local stack
+npm run test:smoke      # Playwright: one browser test from sign-in to download (see below)
 ```
 
 There is no sign-up page. Create Users in Supabase (locally: Studio at http://127.0.0.1:54323,
 or the admin API).
+
+### Browser smoke test
+
+`npm run test:smoke` runs one Playwright test in Chromium: sign in, type a prompt, press Generate,
+watch the status change and the Image appear, click Download, and check the file's name
+(`<prompt-slug>_seed<seed>.png`) and that it is a PNG. It starts its own dev server against the
+local Supabase stack (started if it isn't running) and a fake Runpod (`scripts/demo-runpod.mjs`),
+with the Job follower's timer on; the real Endpoint is never called. It takes about 25 s.
+Its server log and results go to `.next-smoke/`.
+
+The first time, install the browser: `npx playwright install chromium`.
 
 ## Layout
 
@@ -43,7 +55,7 @@ or the admin API).
 - `lib/session.ts` the visitor's Supabase session; the server acts as that User
 - `lib/config.ts` configuration from the environment
 - `supabase/` local stack config and migrations (the same migrations go to the hosted project)
-- `test/` Vitest tests, the fake Runpod and test helpers; `test/container/` tests the Docker image
+- `test/` Vitest tests, the fake Runpod and test helpers; `test/container/` tests the Docker image; `test/smoke/` is the Playwright browser smoke test
 - `Dockerfile`, `.dockerignore` the container image
 
 ## Container image

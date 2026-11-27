@@ -3,11 +3,13 @@
 node_modules
 .next
 .next-test
+.next-smoke
 *.tsbuildinfo
 next-env.d.ts
 npm-debug.log*
 test
 supabase
 scripts
+playwright.config.ts
 Dockerfile
 .dockerignore

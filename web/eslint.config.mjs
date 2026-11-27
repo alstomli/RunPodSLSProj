@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // The test app server's build output.
     ".next-test/**",
+    // The browser smoke test's server and results.
+    ".next-smoke/**",
   ]),
 ]);
 

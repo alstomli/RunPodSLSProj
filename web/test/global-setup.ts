@@ -47,7 +47,8 @@ export function freePort(): Promise<number> {
   });
 }
 
-function stop(child: ChildProcess) {
+/** Stops a server started with spawn (on Windows with its child processes). */
+export function stop(child: ChildProcess) {
   if (child.exitCode !== null || child.pid === undefined) return;
   if (process.platform === "win32") {
     spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"]);
@@ -60,7 +61,8 @@ function stop(child: ChildProcess) {
   }
 }
 
-async function waitForServer(url: string, child: ChildProcess, logFile: string) {
+/** Waits until the Next.js server at `url` answers /sign-in. */
+export async function waitForServer(url: string, child: ChildProcess, logFile: string) {
   const deadline = Date.now() + 120_000;
   while (Date.now() < deadline) {
     if (child.exitCode !== null) break;
@@ -75,7 +77,8 @@ async function waitForServer(url: string, child: ChildProcess, logFile: string) 
   throw new Error(`The test app server did not start. See ${logFile}`);
 }
 
-export default async function setup(project: TestProject) {
+/** The local Supabase stack's URL and keys. Starts the stack if it isn't running; never stops or resets it. */
+export function ensureStack(): Record<string, string> {
   let stack = readStack();
   if (!stack) {
     console.log("Local Supabase stack is not running; starting it (first time pulls Docker images)...");
@@ -84,6 +87,11 @@ export default async function setup(project: TestProject) {
     stack = readStack();
     if (!stack) throw new Error("supabase status gave no API_URL after supabase start");
   }
+  return stack;
+}
+
+export default async function setup(project: TestProject) {
+  const stack = ensureStack();
 
   const runpodPort = await freePort();
   const appPort = await freePort();

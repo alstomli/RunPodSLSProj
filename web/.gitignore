@@ -42,3 +42,6 @@ next-env.d.ts
 
 # test app server
 /.next-test/
+
+# browser smoke test server and results
+/.next-smoke/
