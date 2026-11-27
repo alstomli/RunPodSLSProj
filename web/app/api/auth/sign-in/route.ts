@@ -1,7 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requestSession } from "@/lib/session";
 
-/** POST { email, password } → 200 and session cookies, or 401 { error }. Open to everyone. */
+/**
+ * POST { email, password } → 200 and session cookies, or 401 { error } for wrong details. Open to
+ * everyone. Also 400 when either is missing, 429 when Supabase Auth rate-limits, 503 when it is
+ * unavailable: kept on purpose (README, "Deviations from the spec").
+ */
 export async function POST(request: NextRequest) {
   const input = await request.json().catch(() => null);
   const email = typeof input?.email === "string" ? input.email.trim() : "";

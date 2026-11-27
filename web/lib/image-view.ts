@@ -14,6 +14,11 @@ export function isFinished(status: ImageStatus): boolean {
   return !(UNFINISHED_STATUSES as readonly ImageStatus[]).includes(status);
 }
 
+/** Where the page gets an Image's PNG; with `download`, as an attachment named after the prompt and seed. */
+export function imageFileUrl(imageId: string, { download = false } = {}) {
+  return `/api/images/${imageId}/file${download ? "?download=1" : ""}`;
+}
+
 /** How the page names each status. */
 export const STATUS_LABELS: Record<ImageStatus, string> = {
   pending: "Sent",

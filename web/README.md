@@ -48,6 +48,29 @@ Its server log and results go to `.next-smoke/`.
 
 The first time, install the browser: `npx playwright install chromium`.
 
+## Deviations from the spec (on purpose)
+
+These differ from, or go beyond, spec #2. They were reviewed and kept; please don't "fix" them.
+
+- **Sign-in has more answers than 401.** Wrong details give 401 as specified. A missing email or
+  password gives 400, Supabase Auth's rate limit gives 429, and Supabase Auth being unavailable
+  gives 503, each with a sentence for the User.
+- **`/run` is not retried on 5xx.** The spec says Runpod's 429 and 5xx replies are retried. That
+  holds for `/status` and `/cancel`. For `/run`, only 429 is retried, because a 5xx may have
+  queued the Job already, and a retry could queue it twice.
+- **Test seams in the app.** `GET /api/me` exists for the container test (proves the server acts
+  as the User). `processPendingJobs({ userId, now })` lets tests step only their own Jobs and move
+  the clock. `JOB_FOLLOWER=off` turns the follower's timer off.
+- **Uploads come before the saved-once update.** The follower uploads the PNG (`upsert: true`)
+  and then marks the row completed only if it is still unfinished. Two copies racing may both
+  upload, but to the same path, so there is still one file per Image and one completed row.
+
+Beyond the spec: a Job's row is stored before it is submitted, and the User's own session records
+the Runpod Job id (row-level security allows exactly that, once). A Job that still has no Runpod
+id after 2 minutes is marked failed ("never reached Runpod"). `GET /api/jobs/current` gives the
+page the newest unfinished Job after a reload. Next's image optimizer is off
+(`images.unoptimized`), so `/_next/image` can never serve a User's file.
+
 ## Layout
 
 - `app/` pages and server routes (`app/api/...`)

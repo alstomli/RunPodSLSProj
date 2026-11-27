@@ -7,13 +7,14 @@
  * - POST /cancel/<job>  answers the `cancel` reply (default: CANCELLED)
  * - anything else       404
  *
- * A reply is `{ status, body }` (HTTP status and JSON body) or "drop" (the connection is
- * closed without an answer). Every request is recorded in `requests`.
+ * A reply is `{ status, body, delayMs? }` (HTTP status and JSON body, sent after `delayMs`) or
+ * "drop" (the connection is closed without an answer). Every request is recorded in `requests`
+ * as soon as it arrives, before any delay.
  */
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 
-export type Reply = { status: number; body?: unknown } | "drop";
+export type Reply = { status: number; body?: unknown; delayMs?: number } | "drop";
 
 export type Script = { run?: Reply | Reply[]; cancel?: Reply; statuses?: Reply[] };
 
@@ -117,6 +118,7 @@ export class FakeRunpod {
       req.socket.destroy();
       return;
     }
+    if (reply.delayMs) await new Promise((resolve) => setTimeout(resolve, reply.delayMs));
     let replyBody = reply.body;
     // Like Runpod, 2xx Job replies carry the Job id.
     if (jobId && reply.status < 300 && replyBody && typeof replyBody === "object" && !("id" in replyBody)) {

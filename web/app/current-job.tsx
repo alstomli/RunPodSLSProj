@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { isFinished, STATUS_LABELS, type ImageView } from "@/lib/image-view";
+import { imageFileUrl, isFinished, STATUS_LABELS, type ImageView } from "@/lib/image-view";
+import { callApi } from "./call-api";
 import { DownloadLink } from "./download-link";
 
 /** After this long without a Worker picking the Job up, the page says it's probably a Cold start. */
@@ -27,7 +28,7 @@ export function CurrentJob({ job }: { job: ImageView }) {
             {finished ? "took" : "elapsed"} <span data-testid="elapsed">{formatElapsed(elapsed)}</span>
           </span>
         </p>
-        {!finished && <CancelButton jobId={job.id} />}
+        {!finished && <CancelButton imageId={job.id} />}
       </div>
       {waiting && elapsed >= COLD_START_HINT_SECONDS && (
         <p className="muted" data-testid="cold-start-hint">
@@ -45,7 +46,7 @@ export function CurrentJob({ job }: { job: ImageView }) {
           {/* The PNG comes from our own route, which checks the User; next/image would recompress it. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={`/api/images/${job.id}/file`}
+            src={imageFileUrl(job.id)}
             alt={job.prompt}
             width={job.width}
             height={job.height}
@@ -95,24 +96,23 @@ function formatElapsed(total: number) {
  * Asks the server to cancel the Job on Runpod. The status changes to Cancelled when the follower
  * sees Runpod report it, so until then the button stays as "Cancelling…".
  */
-function CancelButton({ jobId }: { jobId: string }) {
+function CancelButton({ imageId }: { imageId: string }) {
   const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
   const [error, setError] = useState<string | null>(null);
 
   async function cancel() {
     setState("sending");
     setError(null);
-    try {
-      const response = await fetch(`/api/jobs/${jobId}/cancel`, { method: "POST" });
-      if (response.ok) {
-        setState("sent");
-        return;
-      }
-      const body = await response.json().catch(() => null);
-      setError(body?.error ?? "Couldn't cancel the Job. Try again.");
-    } catch {
-      setError("Can't reach the server. Check your connection and try again.");
+    // The route path names the Job; the id is the Image's (one Image per Job).
+    const result = await callApi(`/api/jobs/${imageId}/cancel`, {
+      method: "POST",
+      error: "Couldn't cancel the Job. Try again.",
+    });
+    if (result.ok) {
+      setState("sent");
+      return;
     }
+    setError(result.error);
     setState("idle");
   }
 

@@ -1,11 +1,13 @@
-import { createClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { processPendingJobs } from "@/lib/follower";
-import { Browser, createUser, type TestUser } from "./app";
+import { Browser, createUser, supabaseAs, type TestUser } from "./app";
 import { FakeRunpod, status } from "./fake-runpod";
+import { makePng } from "../scripts/demo-runpod.mjs";
+
+const PNG_SIGNATURE = Buffer.from("89504e470d0a1a0a", "hex");
 
 /** Stand-in for the Worker's PNG: the PNG signature followed by some bytes. */
-const PNG = Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), Buffer.from("gallery image data ÿ\u0000\u0002")]);
+const PNG =Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), Buffer.from("gallery image data ÿ\u0000\u0002")]);
 
 function completed(seed: number): ReturnType<typeof status> {
   return status("COMPLETED", {
@@ -134,17 +136,6 @@ describe("downloading an Image", () => {
   });
 });
 
-/** A Supabase client signed in as the User, the way someone holding their session would use it. */
-async function supabaseAs(user: TestUser) {
-  const env = inject("env");
-  const client = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const { error } = await client.auth.signInWithPassword({ email: user.email, password: user.password });
-  if (error) throw error;
-  return client;
-}
-
 describe("two Users, A and B", () => {
   async function aliceWithAnImage() {
     const a = await signedIn();
@@ -191,6 +182,24 @@ describe("two Users, A and B", () => {
 
     expect(response.status).toBe(404);
     expect(runpod.requests).toHaveLength(0);
+  });
+
+  it("a visitor who isn't signed in can't get A's PNG through Next's image optimizer", async () => {
+    const a = await signedIn();
+    // A real PNG, so the optimizer could resize it if it ever got hold of it.
+    const png = makePng(64, 64, 42);
+    const job = await startJob(a.browser, "A's private lake");
+    runpod.script({ statuses: [status("COMPLETED", { output: { image_base64: png.toString("base64") } })] });
+    await processPendingJobs({ userId: a.user.id });
+    const path = `/_next/image?url=${encodeURIComponent(`/api/images/${job.id}/file`)}&w=64&q=75`;
+    // A asks first, in case the optimizer keeps what it fetched for later visitors.
+    await a.browser.get(path);
+
+    const response = await new Browser().get(path);
+
+    const bytes = Buffer.from(await response.arrayBuffer());
+    expect(response.headers.get("content-type") ?? "").not.toMatch(/^image\//);
+    expect(bytes.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)).toBe(false);
   });
 
   it("B can't read A's file straight from Storage with B's own session", async () => {

@@ -41,6 +41,15 @@ test("sign in, generate an Image, watch it finish and download it", async ({ pag
   const currentJob = page.getByRole("region", { name: "Current Job" });
   const status = currentJob.getByRole("status");
   await expect(status).toContainText("Sent");
+
+  // A reload keeps the running Job in the panel: its status, elapsed time and Cancel, with
+  // Generate disabled so the same prompt isn't sent twice.
+  await page.reload();
+  await expect(status).toContainText(/Sent|In the queue|In progress/);
+  await expect(currentJob.getByTestId("elapsed")).toHaveText(/^\d+:\d\d$/);
+  await expect(currentJob.getByRole("button", { name: "Cancel" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Generate" })).toBeDisabled();
+
   await expect(status).toContainText(/In the queue|In progress/, { timeout: 15_000 });
   await expect(status).toContainText("Done", { timeout: 30_000 });
 

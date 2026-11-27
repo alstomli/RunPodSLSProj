@@ -27,6 +27,17 @@ export async function createUser(): Promise<TestUser> {
   return { id: data.user.id, email, password };
 }
 
+/** A Supabase client signed in as the User, the way someone holding their session would use it. */
+export async function supabaseAs(user: TestUser) {
+  const env = inject("env");
+  const client = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { error } = await client.auth.signInWithPassword({ email: user.email, password: user.password });
+  if (error) throw error;
+  return client;
+}
+
 /** One visitor with a cookie jar. Redirects are not followed, so tests can see them. */
 export class Browser {
   readonly cookies = new Map<string, string>();

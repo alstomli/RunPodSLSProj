@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { downloadFileName } from "@/lib/download-name";
-import { IMAGES_BUCKET, IMAGES_TABLE, isImageId, type ImageRow } from "@/lib/images";
+import { findOwnImage, IMAGES_BUCKET } from "@/lib/images";
 import { notSignedIn, requestSession } from "@/lib/session";
 
 /**
@@ -15,12 +15,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/images/[
   const { id } = await ctx.params;
   const notFound = () => session.respond(NextResponse.json({ error: "There's no such Image." }, { status: 404 }));
 
-  if (!isImageId(id)) return notFound();
-  const { data: row } = await session.supabase
-    .from(IMAGES_TABLE)
-    .select("status, file_path, prompt, seed")
-    .eq("id", id)
-    .maybeSingle<Pick<ImageRow, "status" | "file_path" | "prompt" | "seed">>();
+  const row = await findOwnImage(session, id);
   if (!row || row.status !== "completed" || !row.file_path) return notFound();
 
   const { data: file, error } = await session.supabase.storage.from(IMAGES_BUCKET).download(row.file_path);

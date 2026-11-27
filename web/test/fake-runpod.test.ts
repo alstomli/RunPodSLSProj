@@ -64,6 +64,18 @@ describe("fake Runpod", () => {
     expect((await (await call("/status/job-1")).json()).status).toBe("COMPLETED");
   });
 
+  it("can hold a reply back, recording the request at once", async () => {
+    runpod.script({ run: { status: 200, body: { status: "IN_QUEUE" }, delayMs: 300 } });
+
+    const started = Date.now();
+    const answer = call("/run", { method: "POST", body: "{}" });
+    await expect.poll(() => runpod.requests.length).toBe(1);
+    const response = await answer;
+
+    expect(response.status).toBe(200);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(250);
+  });
+
   it("answers /cancel and remembers that it was asked", async () => {
     expect(runpod.cancelled).toBe(false);
 

@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     .select()
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
-    .returns<ImageRow[]>();
+    .overrideTypes<ImageRow[], { merge: false }>();
   if (error) {
     console.error(`Couldn't list the Gallery: ${error.message}`);
     return session.respond(NextResponse.json({ error: "Couldn't load your Gallery. Try again." }, { status: 500 }));

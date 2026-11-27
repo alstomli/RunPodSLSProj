@@ -38,6 +38,22 @@ async function userWithJob(prompt = "a red fox in snow") {
   return { user, browser, job, step, view };
 }
 
+/**
+ * A Job stored but not yet sent: Runpod holds back its /run reply, which stands in for a server
+ * that stopped between storing the Job and submitting it. `creating` is the create request.
+ */
+async function jobStuckBeforeRunpod() {
+  const user = await createUser();
+  const browser = new Browser();
+  await browser.signIn(user);
+  runpod.script({ run: { status: 200, body: { status: "IN_QUEUE" }, delayMs: 2000 } });
+  const creating = browser.post("/api/jobs", { prompt: "a Job on its way" });
+  await expect.poll(() => runpod.requests.length, { timeout: 10_000 }).toBe(1);
+  const [stuck] = (await (await browser.get("/api/images")).json()).images;
+  expect(stuck.status).toBe("pending");
+  return { user, browser, creating, stuck };
+}
+
 describe("cancelling a Job", () => {
   it("sends /cancel to Runpod at once; the next follower run records cancelled", async () => {
     const { browser, job: created, step, view } = await userWithJob();
@@ -94,6 +110,17 @@ describe("cancelling a Job", () => {
     expect(response.status).toBe(409);
     expect((await response.json()).error).toBeTruthy();
     expect(runpod.cancelled).toBe(false);
+  });
+
+  it("still on its way to Runpod gets 409 saying so, and nothing reaches Runpod", async () => {
+    const { browser, creating, stuck } = await jobStuckBeforeRunpod();
+
+    const response = await browser.post(`/api/jobs/${stuck.id}/cancel`);
+
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toMatch(/not reached Runpod yet/i);
+    expect(runpod.cancelled).toBe(false);
+    await creating;
   });
 
   it("that Runpod refuses gets 502 and the Job carries on", async () => {
@@ -259,6 +286,37 @@ describe("a Job that doesn't succeed", () => {
     const job = await view();
     expect(job.status).toBe("failed");
     expect(job.error).toMatch(/result expired/i);
+  });
+
+  it("whose server stopped before it reached Runpod is marked failed after about 2 minutes", async () => {
+    const { user, browser, creating, stuck } = await jobStuckBeforeRunpod();
+    const view = async () => (await browser.get(`/api/jobs/${stuck.id}`)).json();
+
+    await processPendingJobs({ userId: user.id });
+    expect((await view()).status).toBe("pending");
+    await processPendingJobs({ userId: user.id, now: Date.now() + 3 * 60_000 });
+
+    const job = await view();
+    expect(job.status).toBe("failed");
+    expect(job.error).toMatch(/never reached Runpod/i);
+    expect(job.finishedAt).toBeTruthy();
+    await creating;
+  });
+
+  it("that reaches Runpod after the follower gave up on it is cancelled there, so nothing runs unsaved", async () => {
+    const { user, browser, creating, stuck } = await jobStuckBeforeRunpod();
+    await processPendingJobs({ userId: user.id, now: Date.now() + 3 * 60_000 });
+
+    const response = await creating;
+
+    expect(response.status).toBe(500);
+    expect((await response.json()).error).toBeTruthy();
+    const [run, cancel] = runpod.requests;
+    expect(cancel).toMatchObject({ method: "POST" });
+    expect(cancel.path).toMatch(/^\/cancel\/job-/);
+    expect(run.path).toBe("/run");
+    const job = await (await browser.get(`/api/jobs/${stuck.id}`)).json();
+    expect(job.status).toBe("failed");
   });
 
   it("is left unfinished when Runpod can't be reached, and checked again on the next run", async () => {
