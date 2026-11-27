@@ -30,7 +30,7 @@ npm install
 npx supabase start      # local Supabase in Docker, built from supabase/migrations
 npm run dev:local       # app on http://127.0.0.1:3000 against the local stack; Runpod is never called
 npm test                # Vitest: real HTTP routes, local Supabase, fake Runpod
-npm run lint && npm run typecheck
+npm run check           # typecheck, lint and npm test: what CI runs on every pull request
 npm run test:container  # builds the Docker image and tests a container against the local stack
 npm run test:smoke      # Playwright: one browser test from sign-in to download (see below)
 ```
@@ -80,7 +80,7 @@ page the newest unfinished Job after a reload. Next's image optimizer is off
 - `lib/config.ts` configuration from the environment
 - `supabase/` local stack config and migrations (the same migrations go to the hosted project)
 - `test/` Vitest tests, the fake Runpod and test helpers; `test/container/` tests the Docker image; `test/smoke/` is the Playwright browser smoke test
-- `Dockerfile`, `.dockerignore` the container image (published by `../.github/workflows/web-image.yml`)
+- `Dockerfile`, `.dockerignore` the container image (published by `../.github/workflows/web.yml`)
 
 ## Container image
 
@@ -100,9 +100,14 @@ docker run --rm -p 3000:3000 \
 `http://host.docker.internal:54321` as `SUPABASE_URL`, since `127.0.0.1` inside the container
 is the container itself. Starting the server also starts the Job follower; there is nothing else to run.
 
-The GitHub Actions workflow `../.github/workflows/web-image.yml` runs on every push to `master`
-that changes `web/`. It builds this image and publishes it to GitHub Container Registry as
-`ghcr.io/alstomli/runpodslsproj-web`, tagged `latest` and with the commit SHA. It does not run the tests.
+The GitHub Actions workflow `../.github/workflows/web.yml` has two jobs, both only for changes to `web/`:
+
+- `check`, on every pull request: `npm run check` against a local Supabase stack started in the job.
+- `publish`, on every push to `master`: builds this image and publishes it to GitHub Container
+  Registry as `ghcr.io/alstomli/runpodslsproj-web`, tagged `latest` and with the commit SHA.
+
+`publish` doesn't re-run the tests: `master` takes changes only through pull requests that passed
+`check` and were up to date with `master` (a repository ruleset the owner sets up).
 
 ## Deploying (steps only the owner can do)
 
