@@ -26,6 +26,8 @@ describe("a visitor who isn't signed in", () => {
       ["POST", "/api/auth/sign-out"],
       ["GET", "/api/no-such-route"],
       ["POST", "/api/jobs"],
+      ["GET", "/api/jobs/00000000-0000-4000-8000-000000000000"],
+      ["GET", "/api/images/00000000-0000-4000-8000-000000000000/file"],
     ]) {
       const response = await browser.request(method, path);
       expect(response.status, `${method} ${path}`).toBe(401);

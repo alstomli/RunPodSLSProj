@@ -38,6 +38,7 @@ main {
 }
 
 input,
+textarea,
 button {
   font: inherit;
   padding: 8px 12px;

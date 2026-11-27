@@ -5,7 +5,8 @@ node_modules/
 .next/
 __pycache__/
 *.pyc
-images/
+# The CLI client's output folder (generate.py), at the repo root only.
+/images/
 .pytest_cache/
 supabase/.temp/
 .claude/worktrees/

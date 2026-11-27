@@ -96,6 +96,8 @@ export default async function setup(project: TestProject) {
     RUNPOD_API_KEY: TEST_RUNPOD.apiKey,
     RUNPOD_ENDPOINT_ID: TEST_RUNPOD.endpointId,
     RUNPOD_API_BASE: `http://127.0.0.1:${runpodPort}`,
+    // Tests step the follower themselves with processPendingJobs({ userId }).
+    JOB_FOLLOWER: "off",
   };
 
   fs.mkdirSync(path.join(web, distDir), { recursive: true });
