@@ -19,7 +19,7 @@ Tests and `npm run dev:local` always use a fake or dead Runpod address; keep it 
 
 ## Browser checks
 
-- Open the dev server at `http://localhost:<port>`. On `127.0.0.1`, Next's dev server refuses its HMR websocket, the page never hydrates, and forms fall back to native submits. (The README's `127.0.0.1:3000` is wrong for dev; `dev:local` prints the right URL.)
+- Open the dev server at `http://localhost:<port>`. On `127.0.0.1`, Next's dev server refuses its HMR websocket, the page never hydrates, and forms fall back to native submits.
 - Cookies are shared across ports on one host. Give each agent its own hostname, such as `http://<agent-name>.localhost:<port>` (`npm run dev:local -- --port <port>`), so sessions stay apart.
 - For a signed-in check, create a User through the admin API the way `createUser()` in `web/test/app.ts` does, with the service key from `npx supabase status -o env` and an `example.test` email.
 
