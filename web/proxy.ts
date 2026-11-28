@@ -3,7 +3,6 @@ import { notSignedIn, requestSession } from "@/lib/session";
 
 const PUBLIC_PATHS = new Set(["/sign-in", "/api/auth/sign-in"]);
 
-/** Route handlers check the User again themselves. */
 export async function proxy(request: NextRequest) {
   const session = await requestSession(request);
   const { pathname } = request.nextUrl;

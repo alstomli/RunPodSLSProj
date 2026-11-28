@@ -18,6 +18,14 @@ export function status(name: string, extra: Record<string, unknown> = {}): Reply
 
 let jobCounter = 0;
 
+function jsonOrText(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
 type Current = { run: Reply[]; cancel: Reply; statuses: Reply[] };
 
 function next(replies: Reply[]): Reply {
@@ -72,12 +80,7 @@ export class FakeRunpod {
     const chunks: Buffer[] = [];
     for await (const chunk of req) chunks.push(chunk as Buffer);
     const text = Buffer.concat(chunks).toString("utf8");
-    let body: unknown = text === "" ? undefined : text;
-    try {
-      if (text) body = JSON.parse(text);
-    } catch {
-      // keep the raw text
-    }
+    const body = text === "" ? undefined : jsonOrText(text);
     const path = new URL(req.url ?? "/", this.url).pathname;
     this.requests.push({ method: req.method ?? "", path, authorization: req.headers.authorization, body });
 

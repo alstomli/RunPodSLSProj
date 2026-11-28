@@ -37,8 +37,8 @@ export function GenerateForm({ disabled, onCreated }: { disabled: boolean; onCre
 
   function showErrors(fieldErrors: SettingsErrors) {
     setErrors(fieldErrors);
-    // An error inside a collapsed section would be invisible.
-    if (ADVANCED_FIELDS.some((field) => fieldErrors[field])) setAdvancedOpen(true);
+    const advancedHasErrors = ADVANCED_FIELDS.some((field) => fieldErrors[field]);
+    if (advancedHasErrors) setAdvancedOpen(true);
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {

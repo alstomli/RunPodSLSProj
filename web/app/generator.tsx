@@ -16,7 +16,6 @@ export function Generator() {
 
   useEffect(() => {
     callApi<{ job: ImageView | null }>("/api/jobs/current", { error: "" }).then((result) => {
-      // A Job started meanwhile wins. If the check fails, the form simply opens.
       const restoredJob = result.ok ? result.body.job : null;
       if (restoredJob) setJob((current) => current ?? restoredJob);
       setRestored(true);

@@ -59,9 +59,8 @@ describe("creating a Job", () => {
     const creating = browser.post("/api/jobs", { prompt: "a slow start" });
     await expect.poll(() => runpod.requests.filter((r) => r.path === "/run").length, { timeout: 10_000 }).toBe(1);
 
-    // Runpod hasn't answered yet, and the Job is already there.
     const { images } = await (await browser.get("/api/images")).json();
-    expect(images).toMatchObject([{ prompt: "a slow start", status: "pending" }]);
+    expect(images, "stored while Runpod hasn't answered yet").toMatchObject([{ prompt: "a slow start", status: "pending" }]);
     const response = await creating;
     expect(response.status).toBe(201);
     expect((await response.json()).id).toBe(images[0].id);

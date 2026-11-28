@@ -1,10 +1,8 @@
 import "server-only";
 
-/** Read at run time, never at build time, so one container image works for any deployment. */
 export type Config = {
   supabaseUrl: string;
   supabaseAnonKey: string;
-  /** Only the Job follower may use this. */
   supabaseServiceRoleKey: string;
   runpodApiKey: string;
   runpodEndpointId: string;

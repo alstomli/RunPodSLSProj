@@ -12,7 +12,6 @@ export type ProcessOptions = {
 
 export const RESULT_EXPIRED = "Runpod no longer has this Job (result expired).";
 
-/** A submit gives up well before this, so a Job still without a Runpod Job id by then never reached Runpod. */
 export const NEVER_SENT_AFTER_MS = 2 * 60_000;
 
 export const NEVER_REACHED_RUNPOD = "The Job never reached Runpod (the server stopped before sending it). Try again.";
@@ -50,10 +49,6 @@ export async function processPendingJobs(options: ProcessOptions = {}): Promise<
   }
 }
 
-/**
- * One conditional update, so a create request that records its id at the same moment either wins
- * (and the row runs) or finds the row failed (and cancels its Runpod Job).
- */
 async function failJobsThatNeverReachedRunpod(service: SupabaseClient, { userId, now = Date.now() }: ProcessOptions) {
   let update = service
     .from(IMAGES_TABLE)
@@ -95,7 +90,6 @@ async function followJob(service: SupabaseClient, runpod: Runpod, row: ImageRow)
     const job = await runpod.status(row.runpod_job_id!);
     outcome = OUTCOMES[job.status](job);
   } catch (error) {
-    // Runpod keeps a Job's result for about 30 minutes; after that it answers 404.
     if (error instanceof RunpodError && error.status === 404) {
       outcome = { status: "failed", reason: RESULT_EXPIRED };
     } else {
@@ -113,8 +107,6 @@ async function record(service: SupabaseClient, row: ImageRow, outcome: Outcome) 
       if (outcome.status !== row.status) await updateUnfinished(service, row, { status: outcome.status });
       return;
     case "completed": {
-      // Upload first, then the saved-once update. Two followers racing may both upload, but to
-      // the same path with upsert, so there is still one file per Image (kept on purpose, README).
       const path = imageFilePath(row.user_id, row.id);
       const upload = await service.storage
         .from(IMAGES_BUCKET)
@@ -130,7 +122,6 @@ async function record(service: SupabaseClient, row: ImageRow, outcome: Outcome) 
   }
 }
 
-/** Runpod's `error` is a plain message, or (when the handler raised) a JSON string with `error_message`. */
 function reasonFrom(error: unknown): string | null {
   if (error === undefined || error === null || error === "") return null;
   let value: unknown = error;
@@ -156,7 +147,6 @@ function imageFrom(output: unknown): Buffer | null {
   return Buffer.from(base64, "base64");
 }
 
-/** Only while still unfinished, so two copies of the app never finish the same Job twice. */
 async function updateUnfinished(service: SupabaseClient, row: ImageRow, changes: Partial<ImageRow>) {
   const { error } = await service.from(IMAGES_TABLE).update(changes).eq("id", row.id).in("status", UNFINISHED_STATUSES);
   if (error) throw new Error(`Couldn't update the row: ${error.message}`);

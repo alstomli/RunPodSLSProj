@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requestSession } from "@/lib/session";
 
-/** The 400, 429 and 503 answers go beyond the spec on purpose (README, "Deviations from the spec"). */
 export async function POST(request: NextRequest) {
   const input = await request.json().catch(() => null);
   const email = typeof input?.email === "string" ? input.email.trim() : "";

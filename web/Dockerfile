@@ -8,8 +8,7 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# `public/` is optional; make sure it exists so the copy below always works.
-RUN npm run build && mkdir -p public
+RUN npm run build
 
 FROM node:22-alpine AS run
 WORKDIR /app

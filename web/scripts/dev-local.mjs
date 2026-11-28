@@ -1,4 +1,3 @@
-// npm run dev:local [-- --prod] [-- --port 3000] [-- --fake-runpod]
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -11,6 +10,7 @@ const prod = args.includes("--prod");
 const portIndex = args.indexOf("--port");
 const port = portIndex >= 0 ? args[portIndex + 1] : "3000";
 const fakeRunpod = args.includes("--fake-runpod");
+const UNREACHABLE_RUNPOD = "http://127.0.0.1:9";
 
 const status = spawnSync(process.execPath, [path.join(web, "node_modules/supabase/dist/supabase.js"), "status", "-o", "env"], {
   cwd: web,
@@ -33,19 +33,17 @@ const env = {
   SUPABASE_SERVICE_ROLE_KEY: stack.SERVICE_ROLE_KEY,
   RUNPOD_API_KEY: "local-dev",
   RUNPOD_ENDPOINT_ID: "local-dev",
-  RUNPOD_API_BASE: fakeRunpod ? (await startDemoRunpod()).url : "http://127.0.0.1:9", // nothing listens on 9
+  RUNPOD_API_BASE: fakeRunpod ? (await startDemoRunpod()).url : UNREACHABLE_RUNPOD,
 };
 
 const command = prod
   ? [path.join(web, ".next/standalone/server.js")]
   : [path.join(web, "node_modules/next/dist/bin/next"), "dev", "--port", port];
 if (prod) {
-  // The standalone server serves static files only from its own folder.
   fs.cpSync(path.join(web, ".next/static"), path.join(web, ".next/standalone/.next/static"), { recursive: true });
   env.PORT = port;
   env.HOSTNAME = "127.0.0.1";
 }
-// In dev, open localhost: Next's dev server refuses its HMR socket to 127.0.0.1, and the page never hydrates.
-console.log(`App: http://${prod ? "127.0.0.1" : "localhost"}:${port} (Supabase ${env.SUPABASE_URL}, Runpod ${env.RUNPOD_API_BASE})`);
+console.log(`App: http://127.0.0.1:${port} (Supabase ${env.SUPABASE_URL}, Runpod ${env.RUNPOD_API_BASE})`);
 const child = spawn(process.execPath, command, { cwd: web, env, stdio: "inherit" });
 child.on("exit", (code) => process.exit(code ?? 0));
