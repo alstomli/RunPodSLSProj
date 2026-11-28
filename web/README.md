@@ -114,7 +114,8 @@ The GitHub Actions workflow `../.github/workflows/web.yml` has two main jobs:
 - `check`, on every pull request: `npm run check` against a local Supabase stack started in the job.
   A pull request that changes nothing under `web/` skips it, and GitHub counts the skip as passed.
 - `publish`, on every push to `master` that changes `web/`: builds this image and publishes it to
-  GitHub Container Registry as `ghcr.io/alstomli/runpodslsproj-web`, tagged `latest` and with the commit SHA.
+  Docker Hub as `<docker hub user>/runpodslsproj-web`, tagged `latest` and with the commit SHA.
+  The user comes from the repository variable `DOCKERHUB_USERNAME` (see [Deploying](#deploying-steps-only-the-owner-can-do)).
 
 `publish` doesn't re-run the tests: `master` takes changes only through pull requests that passed
 `check` and were up to date with `master` (a repository ruleset the owner sets up).
@@ -142,11 +143,17 @@ real email address, password or key in this repository.
    Add more Users the same way.
 4. **Make sure the Runpod Secret holding the API key exists**: Runpod console → *Secrets*.
    Note its name; the pod reads it as `{{ RUNPOD_SECRET_<name> }}`. The key needs access to the Endpoint.
-5. **Make the GHCR package public** after the workflow has run once: GitHub → your profile →
-   *Packages* → `runpodslsproj-web` → *Package settings* → *Change visibility* → *Public*.
-   (Runpod pulls the image without credentials.)
+5. **Let the workflow publish to Docker Hub.**
+   - On Docker Hub: *Account settings → Personal access tokens → Generate new token*, with
+     *Read & Write* access.
+   - On GitHub: the repository's *Settings → Secrets and variables → Actions*. Add the variable
+     `DOCKERHUB_USERNAME` (your Docker Hub user) and the secret `DOCKERHUB_TOKEN` (the token).
+
+   The first push creates the repository `<docker hub user>/runpodslsproj-web`. It is public unless
+   your Docker Hub account makes new repositories private; keep it public, since Runpod pulls the
+   image without credentials.
 6. **Create the CPU pod**: Runpod console → *Pods* → *Deploy* → *CPU*, with
-   - container image `ghcr.io/alstomli/runpodslsproj-web:latest`
+   - container image `docker.io/<docker hub user>/runpodslsproj-web:latest`
      (or a commit SHA tag to pin a version),
    - *Expose HTTP ports*: `3000`, no volume (the pod keeps nothing),
    - environment variables:
