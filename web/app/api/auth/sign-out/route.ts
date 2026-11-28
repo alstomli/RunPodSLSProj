@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { notSignedIn, requestSession } from "@/lib/session";
 
-/** POST → ends this session in Supabase Auth and clears its cookies. Other devices stay signed in. */
 export async function POST(request: NextRequest) {
   const session = await requestSession(request);
   if (!session.user) return session.respond(notSignedIn());

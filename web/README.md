@@ -28,12 +28,21 @@ The container listens on port 3000 (`PORT` and `HOSTNAME` are set in the image; 
 ```sh
 npm install
 npx supabase start      # local Supabase in Docker, built from supabase/migrations
-npm run dev:local       # app on http://localhost:3000 against the local stack; Runpod is never called
+npm run dev:local       # app on http://127.0.0.1:3000 against the local stack; Runpod is never called
 npm test                # Vitest: real HTTP routes, local Supabase, fake Runpod
 npm run check           # typecheck, lint and npm test: what CI runs on every pull request
 npm run test:container  # builds the Docker image and tests a container against the local stack
 npm run test:smoke      # Playwright: one browser test from sign-in to download (see below)
 ```
+
+`npm run dev:local` takes these options after `--`:
+
+- `--fake-runpod`: a demo Runpod that plays every Job through to a generated PNG (queued for 3 s,
+  running until 8 s). A prompt containing `fail` ends failed, `error` ends with a Worker error, and
+  `cold` waits 30 s in the queue first, like a Cold start. Without it, Runpod points at a port where
+  nothing listens.
+- `--port <port>`: another port than 3000.
+- `--prod`: the production build (run `npm run build` first).
 
 There is no sign-up page. Create Users in Supabase (locally: Studio at http://127.0.0.1:54323,
 or the admin API).

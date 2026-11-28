@@ -1,13 +1,3 @@
-/**
- * Runs once per `npm run test:container`:
- * 1. Reads the local Supabase stack (it must be running: `npx supabase start`).
- * 2. Builds the image from web/Dockerfile (tag runpodslsproj-web:test), unless TEST_IMAGE names
- *    an image to test instead (for example a published one).
- * 3. Starts one container from it with the stack's settings, Supabase reached through
- *    host.docker.internal and Runpod pointed at a port where nothing listens, and waits for it.
- * Test files get `inject("appUrl")`, `inject("env")` (the host's view of the stack, for createUser)
- * and `inject("image")`.
- */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -16,6 +6,11 @@ import { freePort, readStack } from "../global-setup";
 
 const web = path.resolve(__dirname, "..", "..");
 const logDir = path.join(web, ".next-test");
+const UNREACHABLE_RUNPOD = "http://host.docker.internal:9";
+
+function envFlagsWithoutValues(env: Record<string, string>) {
+  return Object.keys(env).flatMap((name) => ["--env", name]);
+}
 
 function docker(args: string[], options: { env?: NodeJS.ProcessEnv; log?: string } = {}) {
   const result = spawnSync("docker", args, { cwd: web, encoding: "utf8", env: options.env, maxBuffer: 64 * 1024 * 1024 });
@@ -23,7 +18,6 @@ function docker(args: string[], options: { env?: NodeJS.ProcessEnv; log?: string
   return result;
 }
 
-/** The container reaches services on the host through host.docker.internal, not 127.0.0.1. */
 function fromContainer(url: string) {
   return url.replace(/\/\/(127\.0\.0\.1|localhost)([:/]|$)/, "//host.docker.internal$2");
 }
@@ -33,12 +27,8 @@ async function waitForContainer(url: string, container: string) {
   while (Date.now() < deadline) {
     const running = docker(["inspect", "--format", "{{.State.Running}}", container]).stdout.trim();
     if (running !== "true") break;
-    try {
-      const response = await fetch(`${url}/sign-in`, { redirect: "manual" });
-      if (response.status < 500) return;
-    } catch {
-      // not listening yet
-    }
+    const response = await fetch(`${url}/sign-in`, { redirect: "manual" }).catch(() => null);
+    if (response && response.status < 500) return;
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   const logs = docker(["logs", container]);
@@ -68,20 +58,18 @@ export default async function setup(project: TestProject) {
     SUPABASE_URL: fromContainer(stack.API_URL),
     RUNPOD_API_KEY: "container-test",
     RUNPOD_ENDPOINT_ID: "container-test",
-    RUNPOD_API_BASE: "http://host.docker.internal:9", // nothing listens here; Runpod is never called
-    // No live Job follower: the shared local database holds other tests' unfinished Jobs.
+    RUNPOD_API_BASE: UNREACHABLE_RUNPOD,
     JOB_FOLLOWER: "off",
   };
 
   const port = await freePort();
   const appUrl = `http://127.0.0.1:${port}`;
-  // `-e NAME` takes the value from the docker command's own environment, so keys stay off the command line.
   const run = docker(
     [
       "run", "--detach",
       "--publish", `127.0.0.1:${port}:3000`,
       "--add-host", "host.docker.internal:host-gateway",
-      ...Object.keys(containerEnv).flatMap((name) => ["--env", name]),
+      ...envFlagsWithoutValues(containerEnv),
       image,
     ],
     { env: { ...process.env, ...containerEnv } },
@@ -108,7 +96,6 @@ export default async function setup(project: TestProject) {
 
 declare module "vitest" {
   export interface ProvidedContext {
-    /** The container image under test. */
     image: string;
   }
 }

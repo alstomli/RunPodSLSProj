@@ -1,9 +1,4 @@
-/**
- * The page's one way of calling the server routes. Every route answers errors as
- * `{ error: "<sentence for the User>" }` (plus `fields` for invalid settings), so this returns
- * either the reply's body or a sentence to show: the route's own, else `error`, or a
- * "can't reach the server" sentence when the request didn't get through at all.
- */
+import { trustedJson } from "@/lib/utils/unknown";
 
 export type ErrorBody = { error?: string; fields?: Record<string, string> };
 
@@ -20,9 +15,7 @@ export async function callApi<T>(
     offlineError = OFFLINE,
   }: {
     method?: "GET" | "POST";
-    /** Sent as the JSON body. */
     json?: unknown;
-    /** Shown when the route fails without saying why. */
     error: string;
     offlineError?: string;
   },
@@ -38,6 +31,7 @@ export async function callApi<T>(
     return { ok: false, error: offlineError, body: null };
   }
   const body = await response.json().catch(() => null);
-  if (response.ok) return { ok: true, body: body as T };
-  return { ok: false, error: (body as ErrorBody | null)?.error ?? error, body: body as ErrorBody | null };
+  if (response.ok) return { ok: true, body: trustedJson<T>(body) };
+  const errorBody = trustedJson<ErrorBody | null>(body);
+  return { ok: false, error: errorBody?.error ?? error, body: errorBody };
 }

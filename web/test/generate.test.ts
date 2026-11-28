@@ -3,7 +3,6 @@ import { processPendingJobs } from "@/lib/follower";
 import { Browser, createUser, supabaseAs } from "./app";
 import { FakeRunpod, status } from "./fake-runpod";
 
-/** Stand-in for the Worker's PNG: the PNG signature followed by some bytes. */
 const PNG = Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), Buffer.from("fake image data ÿ\u0000\u0001")]);
 
 function completed(seed: number): ReturnType<typeof status> {
@@ -60,9 +59,8 @@ describe("creating a Job", () => {
     const creating = browser.post("/api/jobs", { prompt: "a slow start" });
     await expect.poll(() => runpod.requests.filter((r) => r.path === "/run").length, { timeout: 10_000 }).toBe(1);
 
-    // Runpod hasn't answered yet, and the Job is already there.
     const { images } = await (await browser.get("/api/images")).json();
-    expect(images).toMatchObject([{ prompt: "a slow start", status: "pending" }]);
+    expect(images, "stored while Runpod hasn't answered yet").toMatchObject([{ prompt: "a slow start", status: "pending" }]);
     const response = await creating;
     expect(response.status).toBe(201);
     expect((await response.json()).id).toBe(images[0].id);
@@ -123,7 +121,6 @@ describe("following a Job", () => {
     expect(file.status).toBe(200);
     expect(file.headers.get("content-type")).toBe("image/png");
     expect(Buffer.from(await file.arrayBuffer())).toEqual(PNG);
-    // The follower asked about this one Job, once per step; the routes never called Runpod.
     const paths = runpod.requests.map((r) => `${r.method} ${r.path}`);
     expect(paths).toHaveLength(3);
     expect(new Set(paths).size).toBe(1);
@@ -138,7 +135,6 @@ describe("following a Job", () => {
 
     await processPendingJobs({ userId: user.id });
 
-    // The User comes back later.
     const again = new Browser();
     await again.signIn(user);
     expect((await (await again.get(`/api/jobs/${created.id}`)).json()).status).toBe("completed");
@@ -216,7 +212,6 @@ describe("a User's own Supabase session", () => {
     const created = await (await browser.post("/api/jobs", { prompt: "mine" })).json();
     const own = await supabaseAs(user);
 
-    // The Runpod Job id is recorded once; the status and the file are the follower's.
     for (const changes of [{ runpod_job_id: "job-of-someone-else" }, { status: "completed" }, { status: "failed", error: "x" }]) {
       const update = await own.from("images").update(changes).eq("id", created.id).select();
       expect(update.data ?? [], JSON.stringify(changes)).toEqual([]);

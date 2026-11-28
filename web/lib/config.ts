@@ -1,19 +1,12 @@
 import "server-only";
 
-/**
- * All configuration, read from environment variables at run time (never at build time,
- * so one container image works for any deployment). Server only: none of it reaches the browser.
- */
 export type Config = {
   supabaseUrl: string;
   supabaseAnonKey: string;
-  /** Only the Job follower may use this. */
   supabaseServiceRoleKey: string;
   runpodApiKey: string;
   runpodEndpointId: string;
-  /** Defaults to https://api.runpod.ai/v2/<endpoint id>; tests point it at the fake Runpod. */
   runpodApiBase: string;
-  /** Run the Job follower every few seconds. Tests turn it off with JOB_FOLLOWER=off and step it themselves. */
   jobFollowerTimer: boolean;
 };
 
@@ -45,7 +38,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
 
 let cached: Config | undefined;
 
-/** The configuration, read once per server process (first call is in instrumentation.ts at boot). */
 export function config(): Config {
   return (cached ??= loadConfig());
 }

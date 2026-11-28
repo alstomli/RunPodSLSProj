@@ -68,7 +68,6 @@ button:disabled {
   color: var(--muted);
 }
 
-/* A link that looks like a button (Download). */
 a.button {
   display: inline-block;
   padding: 8px 12px;
@@ -112,7 +111,6 @@ a.button {
   overflow-wrap: anywhere;
 }
 
-/* Advanced settings (generate-form.tsx) */
 button.secondary {
   background: var(--background);
   border-color: var(--border);

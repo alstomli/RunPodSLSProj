@@ -15,10 +15,8 @@ describe("the download file name", () => {
     const prompt =
       "A highly detailed oil painting of an old lighthouse on a rocky coast at dusk, waves crashing, gulls overhead";
 
-    // Cut at 50 characters, even mid-word.
     expect(downloadFileName(prompt, 42)).toBe("a-highly-detailed-oil-painting-of-an-old-lighthous_seed42.png");
-    // Here the 50th character is a dash, which is dropped.
-    expect(downloadFileName("word ".repeat(30), 1)).toBe("word-word-word-word-word-word-word-word-word-word_seed1.png");
+    expect(downloadFileName("word ".repeat(30), 1), "the 50th character is a dash, which is dropped").toBe("word-word-word-word-word-word-word-word-word-word_seed1.png");
   });
 
   it("falls back to 'image' when the prompt has no letters or digits", () => {

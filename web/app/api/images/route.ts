@@ -2,10 +2,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import { IMAGES_TABLE, toImageView, type ImageRow } from "@/lib/images";
 import { notSignedIn, requestSession } from "@/lib/session";
 
-/**
- * GET → the Gallery: `{ images: ImageView[] }`, the User's Images newest first, unfinished Jobs
- * included. Read as the User, so row-level security keeps other Users' Images out.
- */
 export async function GET(request: NextRequest) {
   const session = await requestSession(request);
   if (!session.user) return session.respond(notSignedIn());

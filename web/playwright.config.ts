@@ -1,7 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// `npm run test:smoke`: the one browser smoke test (test/smoke/). Kept out of `npm test`, which is
-// Vitest; test/smoke/global-setup.ts starts its own app server, fake Runpod and User.
 export default defineConfig({
   testDir: "test/smoke",
   testMatch: "**/*.spec.ts",
@@ -9,7 +7,6 @@ export default defineConfig({
   outputDir: ".next-smoke/results",
   reporter: "list",
   workers: 1,
-  // The dev server compiles each page on its first visit, and a Job takes about 8 s.
   timeout: 120_000,
   expect: { timeout: 20_000 },
   use: {

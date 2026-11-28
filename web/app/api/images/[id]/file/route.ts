@@ -3,12 +3,6 @@ import { downloadFileName } from "@/lib/download-name";
 import { findOwnImage, IMAGES_BUCKET } from "@/lib/images";
 import { notSignedIn, requestSession } from "@/lib/session";
 
-/**
- * GET → the original PNG of a completed Image. 404 for an unknown id, an unfinished Image and
- * another User's Image. Both the row and the file are read as the User, so row-level security
- * and the Storage policy both apply. `?download=1` adds `Content-Disposition: attachment` with
- * the file name from lib/download-name.ts. The bytes are the stored PNG either way, never recompressed.
- */
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/images/[id]/file">) {
   const session = await requestSession(request);
   if (!session.user) return session.respond(notSignedIn());
@@ -26,11 +20,9 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/images/[
   const headers: Record<string, string> = {
     "Content-Type": "image/png",
     "Content-Length": String(file.size),
-    // A completed Image's file never changes.
     "Cache-Control": "private, max-age=31536000, immutable",
   };
   if (request.nextUrl.searchParams.has("download")) {
-    // The name holds only a-z, 0-9, "-" and "_", so it needs no escaping.
     headers["Content-Disposition"] = `attachment; filename="${downloadFileName(row.prompt, Number(row.seed))}"`;
   }
   return session.respond(new NextResponse(file.stream(), { headers }));

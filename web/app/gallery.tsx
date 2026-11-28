@@ -1,21 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { imageFileUrl, isFinished, STATUS_LABELS, type ImageView } from "@/lib/image-view";
+import { isFinished, STATUS_LABELS, type ImageView } from "@/lib/image-view";
 import { callApi } from "./call-api";
 import { DownloadLink } from "./download-link";
+import { ImageFile } from "./image-file";
 
-/** How often the Gallery reloads while it shows an unfinished Job. */
 const POLL_MS = 3000;
 
-/** Fired on `window` when the page started a Job or saw one change, so the Gallery reloads. */
 const GALLERY_CHANGED = "gallery-changed";
 
 export function notifyGalleryChanged() {
   window.dispatchEvent(new Event(GALLERY_CHANGED));
 }
 
-/** The User's Images newest first, unfinished Jobs included, each with its settings. */
 export function Gallery() {
   const [images, setImages] = useState<ImageView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -71,15 +69,7 @@ function GalleryItem({ image }: { image: ImageView }) {
   return (
     <li className="gallery-item" data-image-id={image.id}>
       {done ? (
-        // The PNG comes from our own route, which checks the User; next/image would recompress it.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={imageFileUrl(image.id)}
-          alt={image.prompt}
-          width={image.width}
-          height={image.height}
-          loading="lazy"
-        />
+        <ImageFile image={image} loading="lazy" />
       ) : (
         <div className="gallery-placeholder" style={{ aspectRatio: `${image.width} / ${image.height}` }}>
           <span className={image.status === "failed" ? "error" : undefined}>{STATUS_LABELS[image.status]}</span>

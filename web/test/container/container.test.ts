@@ -1,8 +1,3 @@
-/**
- * The production container image, driven from outside like the pod's HTTP proxy would.
- * Run with `npm run test:container` (needs Docker and the local Supabase stack): its global setup
- * builds the image from web/Dockerfile and starts one container against the local stack.
- */
 import { spawnSync } from "node:child_process";
 import { describe, expect, inject, it } from "vitest";
 import { appUrl, Browser, createUser } from "../app";

@@ -1,17 +1,12 @@
-// A stand-in Runpod Endpoint for trying the app by hand (`npm run dev:local -- --fake-runpod`).
-// Unlike test/fake-runpod.ts, which plays back scripted replies, this one plays every Job
-// through on its own clock: IN_QUEUE for 3 s, IN_PROGRESS until 8 s, then COMPLETED with a
-// generated PNG of the requested size. A prompt containing "fail" ends FAILED, "error" ends with
-// a Worker error, and "cold" waits 30 s in the queue first (a Cold start). /cancel works.
-// Jobs it didn't create answer 404, like an expired result on Runpod (`unknownJobStatus` changes
-// that; the browser smoke test uses 400 so its follower leaves other runs' Jobs in the shared
-// database alone).
 import http from "node:http";
 import zlib from "node:zlib";
 
 const QUEUE_MS = 3000;
 const RUN_MS = 8000;
 const COLD_START_MS = 30000;
+const IGNORE_OTHER_RUNS_JOBS = 400;
+const PNG_BIT_DEPTH = 8;
+const PNG_COLOR_TYPE_RGB = 2;
 
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   let c = n;
@@ -34,7 +29,6 @@ function chunk(type, data) {
   return Buffer.concat([length, body, crc]);
 }
 
-/** A width×height RGB PNG: a gradient tinted by the seed, so different seeds look different. */
 export function makePng(width, height, seed) {
   const tint = [seed & 0xff, (seed >>> 8) & 0xff, (seed >>> 16) & 0xff];
   const rows = Buffer.alloc((width * 3 + 1) * height);
@@ -50,8 +44,8 @@ export function makePng(width, height, seed) {
   const header = Buffer.alloc(13);
   header.writeUInt32BE(width, 0);
   header.writeUInt32BE(height, 4);
-  header[8] = 8; // bit depth
-  header[9] = 2; // RGB
+  header[8] = PNG_BIT_DEPTH;
+  header[9] = PNG_COLOR_TYPE_RGB;
   return Buffer.concat([
     Buffer.from("89504e470d0a1a0a", "hex"),
     chunk("IHDR", header),
@@ -60,12 +54,7 @@ export function makePng(width, height, seed) {
   ]);
 }
 
-/**
- * Starts the demo Endpoint on `port` (0 = any free port). Resolves to `{ url, close }`, where
- * `url` is the base URL to use as RUNPOD_API_BASE. `unknownJobStatus` is the HTTP status for
- * Jobs this Endpoint didn't create.
- */
-export function startDemoRunpod(port = 0, { unknownJobStatus = 404 } = {}) {
+export function startDemoRunpod(port = 0) {
   const jobs = new Map();
   let counter = 0;
 
@@ -102,7 +91,7 @@ export function startDemoRunpod(port = 0, { unknownJobStatus = 404 } = {}) {
       if (match[1] === "cancel" && req.method === "POST") jobs.get(match[2]).cancelled = true;
       return reply(res, 200, statusOf(match[2]));
     }
-    reply(res, unknownJobStatus, { error: "job not found" });
+    reply(res, IGNORE_OTHER_RUNS_JOBS, { error: "job not found" });
   });
 
   return new Promise((resolve, reject) => {

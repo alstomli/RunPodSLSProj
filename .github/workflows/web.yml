@@ -1,10 +1,3 @@
-# The web app's CI.
-# Pull requests: typecheck, lint and Vitest against a local Supabase stack (fake Runpod).
-# Every pull request gets a `check` result so the ruleset can require it: when nothing under web/
-# changed, `check` is skipped, which GitHub counts as passed.
-# Pushes to master: build web/Dockerfile and publish it to ghcr.io/alstomli/runpodslsproj-web,
-# tagged `latest` and with the commit SHA. Master takes changes only through pull requests that
-# passed `check` and were up to date with master (repository ruleset), so publish doesn't re-test.
 name: Web
 
 on:
@@ -27,12 +20,12 @@ jobs:
     outputs:
       web: ${{ steps.filter.outputs.web }}
     steps:
-      - id: filter
+      - name: Find whether web/ changed (if the file list can't be read, run the checks)
+        id: filter
         env:
           GH_TOKEN: ${{ github.token }}
           FILES_URL: repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files
         run: |
-          # When the file list can't be read, run the checks rather than skip them.
           if ! files=$(gh api --paginate "$FILES_URL" --jq '.[].filename'); then
             echo "web=true" >> "$GITHUB_OUTPUT"
           elif grep -qE '^(web/|\.github/workflows/web\.yml$)' <<< "$files"; then
@@ -43,7 +36,6 @@ jobs:
 
   check:
     needs: changes
-    # Skipped only when `changes` ran and found nothing under web/; if `changes` failed, check anyway.
     if: ${{ !cancelled() && github.event_name == 'pull_request' && (needs.changes.result != 'success' || needs.changes.outputs.web != 'false') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -56,9 +48,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # Supabase's ports (54320-54329) sit in Linux's ephemeral range; reserve them before the
-      # downloads, or an outgoing connection can hold one and `supabase start` can't bind it.
-      - name: Reserve Supabase's ports
+      - name: Reserve Supabase's ports, which sit in Linux's ephemeral range, before any downloads
         run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=54320-54329
 
       - uses: actions/setup-node@v4

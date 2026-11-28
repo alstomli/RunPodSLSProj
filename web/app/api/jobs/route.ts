@@ -4,18 +4,8 @@ import { IMAGES_TABLE, toImageView, type ImageRow } from "@/lib/images";
 import { runpodClient } from "@/lib/runpod";
 import { notSignedIn, requestSession } from "@/lib/session";
 import { MAX_SEED, validateSettings } from "@/lib/settings";
+import { errorMessage } from "@/lib/utils/unknown";
 
-/**
- * POST { prompt, ...settings } → 201 ImageView (status "pending").
- * 400 { error, fields } when the settings are invalid (nothing is sent to Runpod).
- * 502 { error, id } when Runpod refuses the Job; the Image is stored as "failed".
- *
- * Order: store the row as pending, submit to Runpod, then record the Runpod Job id on the row.
- * A crash after submitting can't lose a billed Job that way: its row is there, and the Job follower
- * marks a row that never got its Runpod id as failed. Every write is made as the User; row-level
- * security lets them record the Runpod Job id (or Runpod's refusal) on their own new row once,
- * and nothing else (supabase/migrations/*_store_jobs_before_runpod.sql).
- */
 export async function POST(request: NextRequest) {
   const session = await requestSession(request);
   if (!session.user) return session.respond(notSignedIn());
@@ -40,7 +30,6 @@ export async function POST(request: NextRequest) {
     return couldNotSave();
   }
 
-  /** Records how the submit went, only while the row is still pending without a Runpod id. */
   const record = (changes: Partial<ImageRow>) =>
     session.supabase
       .from(IMAGES_TABLE)
@@ -56,7 +45,7 @@ export async function POST(request: NextRequest) {
   try {
     runpodJobId = await runpod.submit(settings);
   } catch (error) {
-    const refusal = (error as Error).message;
+    const refusal = errorMessage(error);
     console.error(`Runpod refused Image ${id}: ${refusal}`);
     const failed = await record({ status: "failed", error: refusal, finished_at: new Date().toISOString() });
     if (failed.error) console.error(`Couldn't mark Image ${id} failed: ${failed.error.message}`);
@@ -67,8 +56,6 @@ export async function POST(request: NextRequest) {
 
   const { data, error } = await record({ runpod_job_id: runpodJobId });
   if (error || !data) {
-    // The row is gone or no longer waiting for its id (the follower gave up on it): nothing would
-    // ever save this Job, so don't leave it running and costing money.
     console.error(`Couldn't record Runpod Job ${runpodJobId} on Image ${id}: ${error?.message ?? "row not pending"}`);
     await runpod.cancel(runpodJobId).catch(() => undefined);
     return couldNotSave();

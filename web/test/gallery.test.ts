@@ -6,7 +6,6 @@ import { makePng } from "../scripts/demo-runpod.mjs";
 
 const PNG_SIGNATURE = Buffer.from("89504e470d0a1a0a", "hex");
 
-/** Stand-in for the Worker's PNG: the PNG signature followed by some bytes. */
 const PNG =Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), Buffer.from("gallery image data ÿ\u0000\u0002")]);
 
 function completed(seed: number): ReturnType<typeof status> {
@@ -32,7 +31,6 @@ async function signedIn() {
   return { user, browser };
 }
 
-/** Starts a Job for the User; returns its ImageView. */
 async function startJob(browser: Browser, prompt: string, settings: Record<string, unknown> = {}) {
   runpod.script({});
   const response = await browser.post("/api/jobs", { prompt, ...settings });
@@ -40,7 +38,6 @@ async function startJob(browser: Browser, prompt: string, settings: Record<strin
   return response.json();
 }
 
-/** Starts a Job and lets the follower save its Image. */
 async function makeImage(user: TestUser, browser: Browser, prompt: string, settings: Record<string, unknown> = {}) {
   const job = await startJob(browser, prompt, settings);
   runpod.script({ statuses: [completed(job.seed)] });
@@ -186,13 +183,11 @@ describe("two Users, A and B", () => {
 
   it("a visitor who isn't signed in can't get A's PNG through Next's image optimizer", async () => {
     const a = await signedIn();
-    // A real PNG, so the optimizer could resize it if it ever got hold of it.
-    const png = makePng(64, 64, 42);
+    const resizablePng = makePng(64, 64, 42);
     const job = await startJob(a.browser, "A's private lake");
-    runpod.script({ statuses: [status("COMPLETED", { output: { image_base64: png.toString("base64") } })] });
+    runpod.script({ statuses: [status("COMPLETED", { output: { image_base64: resizablePng.toString("base64") } })] });
     await processPendingJobs({ userId: a.user.id });
     const path = `/_next/image?url=${encodeURIComponent(`/api/images/${job.id}/file`)}&w=64&q=75`;
-    // A asks first, in case the optimizer keeps what it fetched for later visitors.
     await a.browser.get(path);
 
     const response = await new Browser().get(path);
@@ -206,9 +201,8 @@ describe("two Users, A and B", () => {
     const a = await aliceWithAnImage();
     const b = await signedIn();
     const path = `${a.user.id}/${a.image.id}.png`;
-    // The same request with A's session works, so B's failure below is the policy, not a wrong path.
     const asA = await (await supabaseAs(a.user)).storage.from("images").download(path);
-    expect(Buffer.from(await asA.data!.arrayBuffer())).toEqual(PNG);
+    expect(Buffer.from(await asA.data!.arrayBuffer()), "A can read it, so B's failure is the policy").toEqual(PNG);
 
     const asB = await supabaseAs(b.user);
 
