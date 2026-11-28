@@ -130,14 +130,16 @@ real email address, password or key in this repository.
    Note the project URL, the anon key and the service role key (dashboard: *Project Settings →
    API Keys*; the service role key is a secret, keep it out of the repository).
    Under *Authentication → Sign In / Providers*, turn off *Allow new users to sign up*.
-2. **Apply the migrations** (schema, row-level security, Storage bucket and policies) from this folder:
+2. **Apply the migrations** (schema, row-level security, Storage bucket and policies) from this
+   folder (`web/`, where `supabase/migrations/` is):
    ```sh
    npx supabase login
-   npx supabase link --project-ref <your-project-ref>
-   npx supabase db push
+   npx supabase db push --remote=<your-project-ref> --dry-run
+   npx supabase db push --remote=<your-project-ref>
    ```
-   `link` asks for the database password you chose in step 1.
-   Run `npx supabase db push` again whenever new files appear in `supabase/migrations/`.
+   Without `--remote`, the Supabase CLI (3.x) pushes to the local stack instead. The dry run lists
+   the migrations it would apply; the push asks for the database password you chose in step 1.
+   Run the push again whenever new files appear in `supabase/migrations/`.
 3. **Create the first User** in the Supabase dashboard: *Authentication → Users → Add user →
    Create new user*, with your email and a password, and *Auto Confirm User* ticked.
    Add more Users the same way.
