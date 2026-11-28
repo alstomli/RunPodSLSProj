@@ -1,3 +1,5 @@
+import { isOneOf } from "./utils/unknown";
+
 export const IMAGE_STATUSES = ["pending", "in_queue", "in_progress", "completed", "failed", "cancelled"] as const;
 
 export type ImageStatus = (typeof IMAGE_STATUSES)[number];
@@ -5,7 +7,7 @@ export type ImageStatus = (typeof IMAGE_STATUSES)[number];
 export const UNFINISHED_STATUSES = ["pending", "in_queue", "in_progress"] as const satisfies readonly ImageStatus[];
 
 export function isFinished(status: ImageStatus): boolean {
-  return !(UNFINISHED_STATUSES as readonly ImageStatus[]).includes(status);
+  return !isOneOf(UNFINISHED_STATUSES, status);
 }
 
 export function imageFileUrl(imageId: string, { download = false } = {}) {

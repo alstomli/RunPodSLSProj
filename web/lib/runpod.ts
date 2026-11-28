@@ -1,6 +1,7 @@
 import "server-only";
 import { config as appConfig, type Config } from "./config";
 import type { Settings } from "./settings";
+import { errorMessage, field, isOneOf } from "./utils/unknown";
 
 export const RUNPOD_STATUSES = ["IN_QUEUE", "IN_PROGRESS", "COMPLETED", "FAILED", "CANCELLED", "TIMED_OUT"] as const;
 
@@ -14,8 +15,6 @@ export type RunpodJob = {
 };
 
 export type JobInput = Required<Settings>;
-
-type RunpodReply = { id?: unknown; status?: unknown; output?: unknown; error?: unknown };
 
 export class RunpodError extends Error {
   constructor(
@@ -41,14 +40,13 @@ export function runpodClient(
 ) {
   const { runpodApiBase: base, runpodApiKey: key } = config;
 
-  async function call(method: "GET" | "POST", path: string, body?: unknown, safeToRepeat = true): Promise<RunpodReply> {
+  async function call(method: "GET" | "POST", path: string, body?: unknown, safeToRepeat = true): Promise<unknown> {
     for (let attempt = 0; ; attempt++) {
       try {
         return await callOnce(method, path, body);
       } catch (error) {
-        const status = (error as RunpodError).status;
+        const status = error instanceof RunpodError ? error.status : undefined;
         const again =
-          error instanceof RunpodError &&
           status !== undefined &&
           (safeToRepeat ? retryable(status) : status === 429) &&
           attempt < retryDelaysMs.length;
@@ -58,7 +56,7 @@ export function runpodClient(
     }
   }
 
-  async function callOnce(method: "GET" | "POST", path: string, body?: unknown): Promise<RunpodReply> {
+  async function callOnce(method: "GET" | "POST", path: string, body?: unknown): Promise<unknown> {
     let response: Response;
     try {
       response = await fetch(`${base}${path}`, {
@@ -72,14 +70,14 @@ export function runpodClient(
         cache: "no-store",
       });
     } catch (error) {
-      throw new RunpodError(`Runpod couldn't be reached: ${(error as Error).message}`);
+      throw new RunpodError(`Runpod couldn't be reached: ${errorMessage(error)}`);
     }
     const text = await response.text();
     if (!response.ok) {
       throw new RunpodError(`Runpod answered ${response.status}${text ? `: ${text.slice(0, 300)}` : ""}`, response.status);
     }
     try {
-      return JSON.parse(text) as RunpodReply;
+      return JSON.parse(text);
     } catch {
       throw new RunpodError(`Runpod sent a reply that isn't JSON: ${text.slice(0, 300)}`, response.status);
     }
@@ -87,17 +85,19 @@ export function runpodClient(
 
   return {
     async submit(input: JobInput): Promise<string> {
-      const job = await call("POST", "/run", { input }, false);
-      if (typeof job.id !== "string" || !job.id) throw new RunpodError("Runpod accepted the Job but sent no Job id");
-      return job.id;
+      const id = field(await call("POST", "/run", { input }, false), "id");
+      if (typeof id !== "string" || !id) throw new RunpodError("Runpod accepted the Job but sent no Job id");
+      return id;
     },
 
     async status(jobId: string): Promise<RunpodJob> {
-      const job = await call("GET", `/status/${encodeURIComponent(jobId)}`);
-      if (!(RUNPOD_STATUSES as readonly unknown[]).includes(job.status)) {
-        throw new RunpodError(`Runpod sent an unknown Job status: ${JSON.stringify(job.status)}`);
+      const reply = await call("GET", `/status/${encodeURIComponent(jobId)}`);
+      const status = field(reply, "status");
+      if (!isOneOf(RUNPOD_STATUSES, status)) {
+        throw new RunpodError(`Runpod sent an unknown Job status: ${JSON.stringify(status)}`);
       }
-      return { ...job, id: typeof job.id === "string" ? job.id : jobId, status: job.status as RunpodStatus };
+      const id = field(reply, "id");
+      return { id: typeof id === "string" ? id : jobId, status, output: field(reply, "output"), error: field(reply, "error") };
     },
 
     async cancel(jobId: string): Promise<void> {

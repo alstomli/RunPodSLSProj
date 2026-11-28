@@ -1,6 +1,7 @@
 import "server-only";
 import { config } from "./config";
 import { startJobFollower } from "./follower";
+import { errorMessage } from "./utils/unknown";
 
 export function startServer() {
   failAtBootIfMisconfigured();
@@ -11,7 +12,7 @@ function failAtBootIfMisconfigured() {
   try {
     config();
   } catch (error) {
-    console.error(`Can't start: ${(error as Error).message}`);
+    console.error(`Can't start: ${errorMessage(error)}`);
     process.exit(1);
   }
 }

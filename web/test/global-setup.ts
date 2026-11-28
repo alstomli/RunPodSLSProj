@@ -32,8 +32,9 @@ export function freePort(): Promise<number> {
     server.unref();
     server.on("error", reject);
     server.listen(0, "127.0.0.1", () => {
-      const { port } = server.address() as net.AddressInfo;
-      server.close(() => resolve(port));
+      const address = server.address();
+      if (address === null || typeof address === "string") return reject(new Error("No TCP port was given"));
+      server.close(() => resolve(address.port));
     });
   });
 }

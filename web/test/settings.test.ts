@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { SIZE_PRESETS } from "@/lib/settings";
 import { Browser, createUser } from "./app";
 import { FakeRunpod } from "./fake-runpod";
+import { field } from "@/lib/utils/unknown";
 
 let runpod: FakeRunpod;
 let browser: Browser;
@@ -17,7 +18,7 @@ afterAll(async () => {
 });
 
 function sentToRunpod() {
-  return runpod.requests.filter((r) => r.path === "/run").map((r) => (r.body as { input: unknown }).input);
+  return runpod.requests.filter((r) => r.path === "/run").map((r) => field(r.body, "input"));
 }
 
 describe("creating a Job with settings", () => {

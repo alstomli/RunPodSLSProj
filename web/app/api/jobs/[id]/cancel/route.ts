@@ -3,6 +3,7 @@ import { isFinished } from "@/lib/image-view";
 import { findOwnImage, toImageView } from "@/lib/images";
 import { runpodClient } from "@/lib/runpod";
 import { notSignedIn, requestSession } from "@/lib/session";
+import { errorMessage } from "@/lib/utils/unknown";
 
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/jobs/[id]/cancel">) {
   const session = await requestSession(request);
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/jobs/[i
   try {
     await runpodClient().cancel(row.runpod_job_id);
   } catch (error) {
-    console.error(`Couldn't cancel Image ${row.id} (Runpod Job ${row.runpod_job_id}): ${(error as Error).message}`);
+    console.error(`Couldn't cancel Image ${row.id} (Runpod Job ${row.runpod_job_id}): ${errorMessage(error)}`);
     return session.respond(
       NextResponse.json({ error: "Runpod didn't take the cancel. Try again." }, { status: 502 }),
     );

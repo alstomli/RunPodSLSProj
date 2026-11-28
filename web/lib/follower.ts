@@ -4,6 +4,7 @@ import { config } from "./config";
 import { UNFINISHED_STATUSES } from "./image-view";
 import { IMAGES_BUCKET, IMAGES_TABLE, imageFilePath, type ImageRow } from "./images";
 import { runpodClient, RunpodError, type Runpod, type RunpodJob, type RunpodStatus } from "./runpod";
+import { errorMessage, field } from "./utils/unknown";
 
 export type ProcessOptions = {
   userId?: string;
@@ -44,7 +45,7 @@ export async function processPendingJobs(options: ProcessOptions = {}): Promise<
     try {
       await followJob(service, runpod, row);
     } catch (error) {
-      console.error(`Job follower: Image ${row.id} (Runpod Job ${row.runpod_job_id}): ${(error as Error).message}`);
+      console.error(`Job follower: Image ${row.id} (Runpod Job ${row.runpod_job_id}): ${errorMessage(error)}`);
     }
   }
 }
@@ -70,7 +71,7 @@ const OUTCOMES: { [S in RunpodStatus]: (job: RunpodJob) => Outcome } = {
   IN_QUEUE: () => ({ status: "in_queue" }),
   IN_PROGRESS: () => ({ status: "in_progress" }),
   COMPLETED: (job) => {
-    const workerError = reasonFrom((job.output as { error?: unknown } | null | undefined)?.error);
+    const workerError = reasonFrom(field(job.output, "error"));
     if (workerError) return { status: "failed", reason: workerError };
     const png = imageFrom(job.output);
     if (!png) return { status: "failed", reason: "The Worker finished but sent no image." };
@@ -133,8 +134,7 @@ function reasonFrom(error: unknown): string | null {
     }
   }
   if (value && typeof value === "object") {
-    const { error_message, error: inner } = value as { error_message?: unknown; error?: unknown };
-    const message = error_message ?? inner;
+    const message = field(value, "error_message") ?? field(value, "error");
     if (typeof message === "string" && message) return message;
     return JSON.stringify(value);
   }
@@ -142,7 +142,7 @@ function reasonFrom(error: unknown): string | null {
 }
 
 function imageFrom(output: unknown): Buffer | null {
-  const base64 = (output as { image_base64?: unknown } | null | undefined)?.image_base64;
+  const base64 = field(output, "image_base64");
   if (typeof base64 !== "string" || !base64) return null;
   return Buffer.from(base64, "base64");
 }
@@ -154,11 +154,12 @@ async function updateUnfinished(service: SupabaseClient, row: ImageRow, changes:
 
 export const FOLLOW_INTERVAL_MS = 3000;
 
-const TIMER = Symbol.for("runpodslsproj.jobFollowerTimer");
+declare global {
+  var runpodslsprojJobFollowerTimer: NodeJS.Timeout | undefined;
+}
 
 export function startJobFollower(intervalMs = FOLLOW_INTERVAL_MS) {
-  const holder = globalThis as { [TIMER]?: NodeJS.Timeout };
-  if (holder[TIMER]) return;
+  if (globalThis.runpodslsprojJobFollowerTimer) return;
   let running = false;
   const tick = async () => {
     if (running) return;
@@ -166,12 +167,12 @@ export function startJobFollower(intervalMs = FOLLOW_INTERVAL_MS) {
     try {
       await processPendingJobs();
     } catch (error) {
-      console.error(`Job follower: ${(error as Error).message}`);
+      console.error(`Job follower: ${errorMessage(error)}`);
     } finally {
       running = false;
     }
   };
-  holder[TIMER] = setInterval(tick, intervalMs);
-  holder[TIMER].unref();
+  globalThis.runpodslsprojJobFollowerTimer = setInterval(tick, intervalMs);
+  globalThis.runpodslsprojJobFollowerTimer.unref();
   void tick();
 }

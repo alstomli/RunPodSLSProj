@@ -4,6 +4,7 @@ import { IMAGES_TABLE, toImageView, type ImageRow } from "@/lib/images";
 import { runpodClient } from "@/lib/runpod";
 import { notSignedIn, requestSession } from "@/lib/session";
 import { MAX_SEED, validateSettings } from "@/lib/settings";
+import { errorMessage } from "@/lib/utils/unknown";
 
 export async function POST(request: NextRequest) {
   const session = await requestSession(request);
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
   try {
     runpodJobId = await runpod.submit(settings);
   } catch (error) {
-    const refusal = (error as Error).message;
+    const refusal = errorMessage(error);
     console.error(`Runpod refused Image ${id}: ${refusal}`);
     const failed = await record({ status: "failed", error: refusal, finished_at: new Date().toISOString() });
     if (failed.error) console.error(`Couldn't mark Image ${id} failed: ${failed.error.message}`);

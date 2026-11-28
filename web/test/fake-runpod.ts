@@ -1,5 +1,4 @@
 import http from "node:http";
-import type { AddressInfo } from "node:net";
 
 export type Reply = { status: number; body?: unknown; delayMs?: number } | "drop";
 
@@ -48,7 +47,9 @@ export class FakeRunpod {
       server.once("error", reject);
       server.listen(port, "127.0.0.1", resolve);
     });
-    const { port: actual } = server.address() as AddressInfo;
+    const address = server.address();
+    if (address === null || typeof address === "string") throw new Error("The fake Runpod isn't listening on a TCP port");
+    const actual = address.port;
     holder.fake = new FakeRunpod(server, `http://127.0.0.1:${actual}`);
     return holder.fake;
   }
@@ -78,7 +79,7 @@ export class FakeRunpod {
 
   private async handle(req: http.IncomingMessage, res: http.ServerResponse) {
     const chunks: Buffer[] = [];
-    for await (const chunk of req) chunks.push(chunk as Buffer);
+    for await (const chunk of req) chunks.push(Buffer.from(chunk));
     const text = Buffer.concat(chunks).toString("utf8");
     const body = text === "" ? undefined : jsonOrText(text);
     const path = new URL(req.url ?? "/", this.url).pathname;
