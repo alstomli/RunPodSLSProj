@@ -1,6 +1,6 @@
 # `master` changes only through checked, up-to-date pull requests, so publishing doesn't re-test
 
-Every push to `master` that touches the web app publishes `ghcr.io/alstomli/runpodslsproj-web:latest`, the image the pod runs, without running the tests. That is safe only because a repository ruleset makes pull requests the sole way into `master` (no bypass, not even for the owner), requires the `check` job to pass, and requires each pull request to be up to date with `master` before it merges, so the code `check` tested is exactly the code that lands. Re-running the tests in the publish job would spend about seven minutes repeating that run.
+Every push to `master` that touches the web app publishes the web image's `latest` tag to Docker Hub, the image the pod runs, without running the tests. That is safe only because a repository ruleset makes pull requests the sole way into `master` (no bypass, not even for the owner), requires the `check` job to pass, and requires each pull request to be up to date with `master` before it merges, so the code `check` tested is exactly the code that lands. Re-running the tests in the publish job would spend about seven minutes repeating that run.
 
 ## Consequences
 
